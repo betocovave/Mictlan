@@ -1,0 +1,1494 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mictlán</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;background:#0b0a0f;overflow:hidden}
+  canvas{display:block;width:100vw;height:100vh;touch-action:none;cursor:grab}
+  #ui button[aria-pressed=true]{background:#6e2a1f;border-color:#c9b48a}
+  #dlg{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:min(720px,calc(100vw - 32px));box-sizing:border-box;background:#0f0e14ee;border:4px double #c9b48a;border-radius:4px;padding:22px 18px 10px;font:22px/1.25 'VT323',monospace;color:#e8e0cc;box-shadow:0 0 0 2px #0f0e14}
+  #who{position:absolute;top:-16px;left:14px;background:#6e2a1f;border:2px solid #c9b48a;padding:0 10px;font-size:20px;color:#f2e6c8}
+  #say{margin:0;min-height:5em}
+  #face{float:left;width:120px;height:120px;margin:0 16px 4px 0;image-rendering:pixelated;border:3px solid #c9b48a;outline:2px solid #0f0e14;background:#1c1b26}
+  @media (max-width:520px){#face{width:76px;height:76px;margin-right:10px}#dlg{font-size:19px}}
+  #nav{display:flex;justify-content:flex-end;align-items:center;gap:10px;font-size:18px;color:#a89f8a}
+  #nav button{font:inherit;color:#e8e0cc;background:none;border:1px solid #4a4558;border-radius:4px;padding:2px 10px;cursor:pointer}
+  #dlg.done #next{animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{color:#c9b48a;border-color:#c9b48a}}
+  @media (prefers-reduced-motion:reduce){#dlg.done #next{animation:none}}
+  #ui{position:fixed;right:16px;top:16px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;font:13px system-ui,sans-serif;color:#cfc6b2}
+  #ui button{font:inherit;color:inherit;background:#1c1b26cc;border:1px solid #4a4558;border-radius:6px;padding:8px 12px;cursor:pointer}
+  #ui button:focus-visible{outline:2px solid #9fe3ff}
+  #ui{z-index:1}
+  #codex{position:fixed;inset:0;display:grid;place-items:center;padding:72px 16px 16px;box-sizing:border-box;background:#0b0a0fcc}
+  #codex[hidden]{display:none}
+  #leaf{display:grid;justify-items:center;text-align:center;width:min(900px,100%);max-height:100%;box-sizing:border-box;padding:0 22px 12px;background:#d9c79a repeating-linear-gradient(0deg,#0000 0 5px,#8a6a3e18 5px 6px);border:6px solid #6e2a1f;outline:2px solid #1a1210;font:22px/1.25 'VT323',monospace;color:#2a1e18;box-shadow:0 0 40px #000}
+  .greca{justify-self:stretch;height:14px;margin:0 -22px;background:repeating-linear-gradient(90deg,#1a1210 0 4px,#d9c79a 4px 8px,#6e2a1f 8px 16px,#d9c79a 16px 20px)}
+  .greca:first-child{margin-bottom:14px}.greca:last-of-type{margin-top:10px}
+  #cart{width:min(100%,576px,max(240px,calc((100vh - 330px) * 1.5)));height:auto;align-self:start;image-rendering:pixelated;outline:3px solid #6e2a1f;outline-offset:3px;margin:6px 0 14px}
+  #cwho{margin:0 0 6px;font-size:34px;font-weight:normal;color:#6e2a1f}
+  #ctext{margin:0;max-width:34em}
+  #cnav{justify-self:stretch;display:flex;justify-content:flex-end;align-items:center;gap:10px;font-size:18px;color:#6e2a1f}
+  #cnav button{font:inherit;color:#2a1e18;background:none;border:2px solid #6e2a1f;border-radius:4px;padding:2px 10px;cursor:pointer}
+  #cnav button:focus-visible{outline:2px solid #1a1210}
+  @media (max-width:620px){#leaf{font-size:19px;padding:0 12px 10px}.greca{margin:0 -12px}#cwho{font-size:26px}}
+  #sub{position:fixed;left:16px;top:16px;max-width:min(420px,calc(100vw - 200px));background:#0f0e14dd;border:2px solid #c9b48a;padding:4px 10px;font:20px/1.2 'VT323',monospace;color:#e8e0cc}
+  #hint{background:#1c1b26aa;padding:6px 10px;border-radius:6px;display:none}
+</style>
+</head>
+<body>
+<div id="codex" hidden>
+  <div id="leaf" role="region" aria-label="Códice">
+    <div class="greca"></div>
+    <h2 id="cwho"></h2>
+    <canvas id="cart" width="96" height="64" role="img"></canvas>
+    <p id="ctext" aria-live="polite"></p>
+    <div class="greca"></div>
+    <div id="cnav"><button id="cprev" aria-label="Lámina anterior">◀</button><span id="ccnt"></span><button id="cnext" aria-label="Lámina siguiente">▶</button></div>
+  </div>
+</div>
+<div id="ui">
+  <div role="group" aria-label="Modo de vista"><button data-m="orbit">Orbital</button> <button data-m="pov">POV</button> <button data-m="guide">Guía</button> <button data-m="codice">Códice</button></div>
+  <button id="music" aria-pressed="true">♪ Música</button>
+  <div id="hint">WASD / flechas: caminar · arrastrar: mirar · rueda o pellizco: avanzar · Shift: correr</div>
+</div>
+<div id="sub" hidden></div>
+<div id="dlg" hidden>
+  <canvas id="face" width="48" height="48" aria-hidden="true"></canvas>
+  <div id="who"></div>
+  <p id="say" aria-live="polite"></p>
+  <div id="nav"><button id="prev" aria-label="Anterior">◀</button><span id="cnt"></span><button id="next" aria-label="Siguiente">▶</button></div>
+</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+const LOOP = 20;
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+document.body.appendChild(renderer.domElement);
+
+const SKY = 0x1c1b26;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY);
+scene.fog = new THREE.FogExp2(SKY, 0.005);
+const camera = new THREE.PerspectiveCamera(50, 9 / 16, 0.5, 700);
+// Full screen; screens narrower than 9:16 widen the fov so the island keeps its 9:16 framing.
+const HFOV916 = 2 * Math.atan(Math.tan(25 * Math.PI / 180) * 9 / 16);
+function fit() {
+  const a = innerWidth / innerHeight;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = a;
+  camera.fov = a < 9 / 16 ? 2 * Math.atan(Math.tan(HFOV916 / 2) / a) * 180 / Math.PI : 50;
+  camera.updateProjectionMatrix();
+}
+fit();
+addEventListener('resize', fit);
+
+// ---------- helpers ----------
+let seed = 7;
+const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const pick = a => a[Math.floor(rnd() * a.length)];
+const hash = (x, z) => { const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); };
+const lerp = (a, b, t) => a + (b - a) * t;
+const noise = (x, z) => {
+  const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
+  return lerp(lerp(hash(xi, zi), hash(xi + 1, zi), u), lerp(hash(xi, zi + 1), hash(xi + 1, zi + 1), u), v);
+};
+const ss = (a, b, t) => { t = Math.min(1, Math.max(0, (t - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+const box = new THREE.BoxGeometry(1, 1, 1);
+const stone = new THREE.MeshStandardMaterial({ roughness: 0.92 });
+const glowMat = new THREE.MeshBasicMaterial();
+const wet = new THREE.MeshStandardMaterial({ roughness: 0.12, metalness: 0.7 });
+const tmpC = new THREE.Color();
+
+// Voxel set -> instanced meshes; fully enclosed voxels are culled.
+class V {
+  constructor(s = 1, mat = stone) { this.s = s; this.mat = mat; this.m = new Map(); }
+  put(x, y, z, c, e = false) { this.m.set(x + ',' + y + ',' + z, [x, y, z, c, e]); }
+  fill(x0, y0, z0, x1, y1, z1, c, e) {
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++)
+      { const col = typeof c == 'function' ? c(x, y, z) : c; if (col != null) this.put(x, y, z, col, e); }
+  }
+  has(x, y, z) { return this.m.has(x + ',' + y + ',' + z); }
+  build() {
+    const g = new THREE.Group(), s = this.s, o = new THREE.Object3D(), sets = [[], []];
+    for (const v of this.m.values()) {
+      const [x, y, z] = v;
+      if (this.has(x + 1, y, z) && this.has(x - 1, y, z) && this.has(x, y + 1, z) && this.has(x, y - 1, z) && this.has(x, y, z + 1) && this.has(x, y, z - 1)) continue;
+      sets[v[4] ? 1 : 0].push(v);
+    }
+    sets.forEach((arr, k) => {
+      if (!arr.length) return;
+      const im = new THREE.InstancedMesh(box, k ? glowMat : this.mat, arr.length);
+      arr.forEach((v, i) => {
+        o.position.set(v[0] * s, v[1] * s, v[2] * s); o.scale.setScalar(s); o.updateMatrix();
+        im.setMatrixAt(i, o.matrix);
+        tmpC.set(v[3]); if (!k) tmpC.offsetHSL(0, 0, (rnd() - 0.5) * 0.04);
+        im.setColorAt(i, tmpC);
+      });
+      im.castShadow = im.receiveShadow = !k;
+      g.add(im);
+    });
+    return g;
+  }
+}
+
+const world = new THREE.Group();
+scene.add(world);
+const place = (v, x, y, z, parent = world) => { const g = v.build(); g.position.set(x, y, z); parent.add(g); return g; };
+
+// ---------- lights ----------
+scene.add(new THREE.HemisphereLight(0x5b6f99, 0x2b2220, 1.1));
+const sun = new THREE.DirectionalLight(0x8fa6d6, 1.7);
+sun.position.set(-40, 70, 35);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -85, right: 85, top: 85, bottom: -85, near: 1, far: 260 });
+sun.shadow.bias = -0.0008;
+scene.add(sun);
+const ember = (x, y, z, i = 40) => { const l = new THREE.PointLight(0xff7a2a, i, 22, 2); l.position.set(x, y, z); world.add(l); return l; };
+
+// ---------- floating island ----------
+const R = 32;
+const top = {};
+const rx = z => 22 + Math.sin(z * 0.15) * 2.5;
+const inPlaza = (x, z) => Math.abs(x) < 17 && z > -26 && z < 15;
+const isl = new V(1), water = new V(1, wet);
+for (let x = -40; x <= 40; x++) for (let z = -40; z <= 40; z++) {
+  const d = Math.hypot(x, z * 1.08) / R + (noise(x * 0.12 + 9, z * 0.12) - 0.5) * 0.3;
+  if (d > 1) continue;
+  const river = Math.abs(x - rx(z)) < 1.7 && z > -20;
+  let h = inPlaza(x, z) ? 3 : 3 + Math.floor(noise(x * 0.09, z * 0.09 + 4) * 5 * Math.max(0, d - 0.3));
+  if (river) h = 1;
+  const b = 2 - Math.floor(Math.pow(1 - d, 0.55) * 30 + noise(x * 0.3, z * 0.3) * 6);
+  top[x + ',' + z] = river ? 2 : h;
+  for (let y = b; y <= h; y++) {
+    let c;
+    if (y == h && !river) c = inPlaza(x, z)
+      ? ((x % 4 == 0 || z % 4 == 0) ? '#bdb5a3' : pick(['#4a4544', '#524b47', '#463f3f']))
+      : pick(['#7d6038', '#6b4d30', '#5f6450', '#585450', '#8a6a3e', '#6e5236']);
+    else if (y > h - 2) c = pick(['#5c4630', '#4f3d2c']);
+    else if ((y + 60) % 7 == 0) c = pick(['#c4bba6', '#b3ab98']);
+    else c = pick(['#2b292e', '#35302f', '#24232a', '#3a3436']);
+    isl.put(x, y, z, c);
+  }
+  if (river) water.put(x, 2, z, '#0b0c12');
+  if (!inPlaza(x, z) && !river && d > 0.55 && hash(x, z) > 0.965) {
+    const hh = 2 + Math.floor(hash(z, x) * 4);
+    for (let y = 1; y <= hh; y++) isl.put(x, h + y, z, '#121118');
+  }
+}
+const ground = (x, z) => (top[Math.round(x) + ',' + Math.round(z)] ?? 3) + 0.5;
+
+// bone-white pathways
+const path = (x0, x1, z0, z1) => { for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { const k = x + ',' + z; if (top[k] > 2) isl.put(x, top[k], z, pick(['#c9c1ae', '#bab29f'])); } };
+path(-27, -17, 0, 1); path(17, 20, 1, 3); path(24, 28, 1, 3); path(-1, 1, 15, 22);
+// low stone bridge over the river
+for (let x = Math.round(rx(2)) - 3; x <= Math.round(rx(2)) + 3; x++) for (let z = 1; z <= 3; z++) {
+  const y = Math.abs(x - rx(2)) < 2 ? 4 : 3;
+  isl.put(x, y, z, '#46403e');
+  if (z != 2) isl.put(x, y + 1, z, '#2f2b2c');
+}
+place(isl, 0, 0, 0);
+place(water, 0, 0, 0);
+
+// where the river leaves the island
+let ez = -20;
+for (let z = -20; z < 45; z++) if (top[Math.round(rx(z)) + ',' + z] !== undefined) ez = z;
+const fallO = new THREE.Vector3(rx(ez), 2.4, ez + 0.6), fallDir = new THREE.Vector3(fallO.x, 0, fallO.z).normalize();
+
+// ---------- temple (teocalli) ----------
+const T = new V(0.5);
+const basalt = () => pick(['#2a272b', '#312d31', '#2d2a2c']);
+const ws = [26, 21, 17, 13, 10], TH = 6;
+for (let i = 0; i < ws.length; i++) {
+  const y0 = i * TH;
+  for (let y = y0; y < y0 + TH; y++) {
+    const w = ws[i] - Math.floor((y - y0) / 3); // talud slope
+    for (let x = -w; x <= w; x++) for (let z = -w; z <= w; z++) {
+      const edge = Math.max(Math.abs(x), Math.abs(z));
+      if (edge != w && y != y0 + TH - 1) continue;
+      const u = Math.abs(z) == w ? x : z, m = ((u % 8) + 8) % 8, r = y - y0;
+      let c = basalt();
+      if (y == y0 + TH - 1) c = '#3e3a3c';
+      else if (r == 3) c = m == 2 || m == 4 ? '#0d0c10' : m == 3 ? '#c9c0ab' : m == 0 || m == 6 ? '#121016' : c;
+      else if (r == 2) c = m >= 2 && m <= 4 ? '#c9c0ab' : c;
+      else if (r == 1 || r == 4) c = ((u + (r == 1 ? 0 : 4)) % 8 + 8) % 8 < 3 ? '#5f5e4a' : c; // serpent bands
+      T.put(x, y, z, c);
+    }
+  }
+}
+// stairway + alfardas with serpent heads
+for (let y = 0; y < 30; y++) {
+  const zEnd = 39 - y;
+  for (let z = Math.max(0, zEnd - 10); z <= zEnd; z++) {
+    for (let x = -4; x <= 4; x++) T.put(x, y, z, z == zEnd ? (y % 2 ? '#57504d' : '#4a4446') : basalt());
+    for (const sx of [-6, -5, 5, 6]) T.put(sx, y + 1, z, '#2a272b');
+  }
+}
+for (const sx of [-1, 1]) {
+  T.fill(sx * 7 - 1, 0, 39, sx * 7 + 1, 3, 42, '#5b5a48');
+  T.put(sx * 7, 2, 43, '#0d0c10'); T.put(sx * 7 - sx, 3, 42, '#0d0c10');
+}
+// braziers on tier corners
+for (let i = 0; i < ws.length; i++) {
+  const y = (i + 1) * TH, w = ws[i] - 3;
+  for (const sx of [-1, 1]) {
+    T.fill(sx * w - 1, y, w - 1, sx * w + 1, y, w + 1, '#3a2a22');
+    T.fill(sx * w, y + 1, w, sx * w, y + 2, w, '#ff8a3a', true);
+  }
+}
+// summit shrine and obelisk
+for (let y = 30; y < 38; y++) for (let x = -6; x <= 6; x++) for (let z = -6; z <= 6; z++)
+  if (Math.max(Math.abs(x), Math.abs(z)) == 6 || y == 37) T.put(x, y, z, y == 37 ? '#3e3a3c' : basalt());
+T.fill(-1, 30, 6, 1, 33, 6, '#0a090c');
+T.fill(-1, 38, -1, 0, 56, 0, (x, y) => y % 6 == 0 ? '#bdb5a3' : '#1d1b20');
+T.fill(-1, 57, -1, 0, 58, 0, '#9fe3ff', true);
+const temple = place(T, 0, 3.75, -11);
+const tip = new THREE.PointLight(0x8fd8ff, 60, 40, 2);
+tip.position.set(0, 3.75 + 29, -11);
+world.add(tip);
+ember(-11.5, 3.75 + 3.5, -11 + 11.5); ember(11.5, 3.75 + 3.5, -11 + 11.5);
+ember(-7, 3.75 + 9.5, -11 + 7); ember(7, 3.75 + 9.5, -11 + 7);
+
+// ---------- small props (0.2 voxels) ----------
+const P = new V(0.2);
+const at = (px, pz) => [Math.round(px * 5), Math.round(ground(px, pz) * 5 + 0.5), Math.round(pz * 5)];
+const skull = (px, pz) => { const [x, y, z] = at(px, pz); P.fill(x - 2, y, z - 2, x + 2, y + 3, z + 2, '#d8d0bd'); P.fill(x - 1, y, z + 3, x + 1, y + 1, z + 3, '#cfc6b2'); P.put(x - 1, y + 2, z + 3, '#141214'); P.put(x + 1, y + 2, z + 3, '#141214'); };
+const bone = (px, pz) => { const [x, y, z] = at(px, pz); for (let k = -3; k <= 3; k++) P.put(x + k, y, z, '#d2cab6'); P.put(x - 3, y, z + 1, '#d2cab6'); P.put(x + 3, y, z - 1, '#d2cab6'); };
+const bowl = (px, pz) => { const [x, y, z] = at(px, pz); P.fill(x - 2, y, z - 2, x + 2, y + 1, z + 2, '#7a4f33'); P.fill(x - 1, y + 1, z - 1, x + 1, y + 1, z + 1, '#3b2216'); };
+const vessel = (px, pz) => { const [x, y, z] = at(px, pz); P.fill(x - 1, y, z - 1, x + 1, y + 4, z + 1, '#8a5a3a'); P.put(x + 1, y + 2, z + 1, '#1a1210'); P.put(x - 1, y + 4, z, '#1a1210'); P.put(x, y + 5, z, '#8a5a3a'); };
+const figurine = (px, pz) => { const [x, y, z] = at(px, pz); P.fill(x - 1, y + 2, z - 2, x + 1, y + 3, z + 2, '#9a6440'); for (const [a, b] of [[-1, -2], [1, -2], [-1, 2], [1, 2]]) P.fill(x + a, y, z + b, x + a, y + 1, z + b, '#9a6440'); P.fill(x, y + 4, z + 2, x, y + 5, z + 3, '#9a6440'); P.put(x - 1, y + 6, z + 2, '#9a6440'); P.put(x + 1, y + 6, z + 2, '#9a6440'); };
+const lantern = (px, pz, light) => { const [x, y, z] = at(px, pz); P.fill(x - 1, y, z - 1, x + 1, y + 4, z + 1, '#6e4630'); P.fill(x, y + 1, z - 1, x, y + 3, z + 1, '#ffa04a', true); P.fill(x - 1, y + 1, z, x + 1, y + 3, z, '#ffa04a', true); if (light) ember(px, ground(px, pz) + 0.6, pz, 12); };
+seed = 21;
+for (let i = 0; i < 40; i++) {
+  const a = rnd() * Math.PI * 2, r = 10 + rnd() * 22, x = Math.cos(a) * r, z = Math.sin(a) * r;
+  if (Math.abs(x) < 14 && z > -25 && z < 9.5) continue; // temple footprint
+  if (Math.abs(x - rx(z)) < 2.5 || Math.hypot(x, z * 1.08) > 28) continue;
+  [skull, bone, skull, vessel][i % 4](x, z);
+}
+for (const [x, z] of [[-10, 14.2], [-3, 13.5], [3, 13.5], [10, 14.2], [14, 10], [-14, 10]]) bowl(x, z);
+for (const [x, z] of [[-8, 11], [8, 11], [-15, 4], [15, 4], [4, 12]]) figurine(x, z);
+lantern(-21, 2.5, true); lantern(18.5, 4, true); lantern(25.5, 4, false); lantern(-22, -9.5, false); lantern(1.8, 17, false);
+place(P, 0, 0, 0);
+
+// ---------- houses, loom, trees ----------
+function house(px, pz, ry) {
+  const v = new V(0.5), w = 5, d = 4, h = 6;
+  for (let x = -w; x <= w; x++) for (let y = 0; y <= h; y++) for (let z = -d; z <= d; z++)
+    if (Math.abs(x) == w || Math.abs(z) == d) v.put(x, y, z, pick(['#7a5236', '#6d4a31', '#835a3b']));
+  v.fill(-w - 1, h + 1, -d - 1, w + 1, h + 1, d + 1, '#4d3a2b');
+  v.fill(-1, 0, d, 1, 3, d, '#151214');
+  v.put(3, 3, d, '#2a1e18');
+  const g = place(v, px, ground(px, pz) + 0.25, pz); g.rotation.y = ry;
+}
+house(-25, 4, Math.PI / 2); house(-24, -13, Math.PI / 2.4); house(28, -1, -Math.PI / 2);
+{ // wooden loom beside the eastern hut
+  const v = new V(0.25);
+  v.fill(-5, 0, 0, -5, 11, 0, '#4a3324'); v.fill(5, 0, 0, 5, 11, 0, '#4a3324');
+  v.fill(-5, 11, 0, 5, 11, 0, '#3c2a1e'); v.fill(-5, 2, 0, 5, 2, 0, '#3c2a1e');
+  for (let x = -4; x <= 4; x++) for (let y = 3; y <= 10; y++) if (y < 7 || x % 2 == 0) v.put(x, y, 0, y < 7 ? (((x + y) % 3) ? '#a5793c' : '#7e2f22') : '#c9b48a');
+  const g = place(v, 26.5, ground(26.5, 5) + 0.125, 5); g.rotation.y = -0.4;
+}
+const sway = [];
+seed = 99;
+function tree(px, pz) {
+  const v = new V(0.5); let x = 0, z = 0, y = 0;
+  const Ht = 10 + Math.floor(rnd() * 6);
+  for (; y < Ht; y++) {
+    v.put(x, y, z, '#3a3029'); v.put(x + 1, y, z, '#2f2722');
+    if (y < 2) { v.put(x, y, z + 1, '#2f2722'); v.put(x - 1, y, z, '#3a3029'); }
+    if (rnd() < 0.3) x += rnd() < 0.5 ? 1 : -1;
+    if (rnd() < 0.3) z += rnd() < 0.5 ? 1 : -1;
+  }
+  for (let b = 0; b < 6; b++) {
+    let bx = x, by = y - 1 - Math.floor(rnd() * 5), bz = z;
+    const dx = rnd() * 2 - 1, dz = rnd() * 2 - 1;
+    for (let k = 0; k < 7; k++) {
+      bx += Math.round(dx * 1.4); bz += Math.round(dz * 1.4); by += rnd() < 0.6 ? 1 : 0;
+      v.put(bx, by, bz, '#33291f');
+      if (k > 2 && rnd() < 0.6) v.put(bx + (rnd() < 0.5 ? 1 : -1), by + 1, bz, pick(['#4fb3a5', '#3d8f87', '#6fd0c0']), true);
+    }
+  }
+  const piv = new THREE.Group();
+  piv.position.set(px, ground(px, pz), pz);
+  place(v, 0, 0.25, 0, piv);
+  world.add(piv); sway.push(piv);
+}
+for (const [x, z] of [[-23, -4], [-20, 17], [-7, 21], [27, -9], [9, 22], [-20, -20], [18, 18], [20, -16]]) tree(x, z);
+
+// ---------- amate banners ----------
+function amateTex() {
+  const c = document.createElement('canvas'); c.width = 32; c.height = 80;
+  const g = c.getContext('2d');
+  g.fillStyle = '#b8a274'; g.fillRect(0, 0, 32, 80);
+  for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(70,50,25,${rnd() * 0.3})`; g.fillRect(rnd() * 32, rnd() * 80, rnd() * 10, 1); }
+  g.fillStyle = '#6e2a1f';
+  for (let y = 8; y < 72; y += 18) { g.fillRect(8, y, 16, 3); g.fillRect(8, y, 3, 10); g.fillRect(14, y + 6, 10, 3); }
+  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const banners = [];
+const bannerMat = new THREE.MeshStandardMaterial({ map: amateTex(), side: THREE.DoubleSide, roughness: 1 });
+const poleMat = new THREE.MeshStandardMaterial({ color: 0x2e241d, roughness: 1 });
+for (const [x, z] of [[-16, 13], [16, 13], [-16, -6], [16, -6]]) {
+  const gy = ground(x, z);
+  const pole = new THREE.Mesh(new THREE.BoxGeometry(0.3, 8, 0.3), poleMat);
+  pole.position.set(x, gy + 4, z); pole.castShadow = true; world.add(pole);
+  const geo = new THREE.PlaneGeometry(1.6, 4, 8, 12); geo.translate(0.8, -2, 0);
+  const m = new THREE.Mesh(geo, bannerMat);
+  m.position.set(x + 0.15, gy + 7.6, z); m.rotation.y = x < 0 ? 0 : Math.PI; m.castShadow = true;
+  world.add(m); banners.push({ m, base: geo.attributes.position.array.slice(), ph: rnd() * 6 });
+}
+
+// ---------- Xoloitzcuintli guardian ----------
+const S = 0.4, skin = ['#4a4542', '#544c47', '#423d3b', '#5a514b'];
+const dogRoot = new THREE.Group();
+dogRoot.position.set(-6, ground(-6, 12), 12);
+world.add(dogRoot);
+const hip = new THREE.Group(); dogRoot.add(hip);
+const bodyV = new V(S);
+for (let z = 0; z <= 15; z++) for (let x = -4; x <= 4; x++) for (let y = -4; y <= 4; y++) {
+  const a = z > 10 ? 3 : z > 5 ? 2.3 : 2.6, b = z > 10 ? 3.4 : z > 5 ? 2.4 : 2.7, yc = z > 10 ? -0.5 : 0.3;
+  if ((x * x) / (a * a) + ((y - yc) * (y - yc)) / (b * b) > 1) continue;
+  const mark = z > 10 && z < 15 && y > 0 && Math.abs(x) > 1 && (x + y + z) % 3 == 0;
+  bodyV.put(x, y, z, mark ? ((z % 2) ? '#8a3324' : '#a8742e') : pick(skin));
+}
+const body = place(bodyV, 0, 0, 0, hip);
+const legs = [];
+function leg(hind, sx, z) {
+  const v = new V(S);
+  for (let y = -10; y <= 0; y++) { v.fill(0, y, 0, 1, y, 1, () => pick(skin)); if (hind && y > -5) v.fill(0, y, -1, 1, y, 2, () => pick(skin)); }
+  v.fill(0, -10, 2, 1, -10, 2, '#3a3533');
+  const piv = new THREE.Group(); piv.position.set(sx * 0.8 - 0.2, -0.8, z * S); body.add(piv);
+  place(v, 0, 0, 0, piv); legs.push({ piv, hind });
+}
+leg(false, -1, 13); leg(false, 1, 13); leg(true, -1, 2); leg(true, 1, 2);
+const head = new THREE.Group(); head.position.set(0, 2 * S, 14 * S); body.add(head);
+const hv = new V(S);
+for (let z = 0; z <= 2; z++) hv.fill(-1, z, z, 1, z + 3, z + 1, () => pick(skin));
+hv.fill(-2, 4, 1, 2, 8, 6, () => pick(skin));
+hv.fill(-1, 4, 7, 1, 6, 10, () => pick(skin));
+hv.fill(-1, 4, 8, 1, 4, 10, '#2a2422');
+hv.fill(0, 5, 11, 0, 6, 11, '#111014');
+for (const sx of [-2, 2]) {
+  hv.fill(sx, 9, 2, sx, 11, 3, '#3d3836'); hv.fill(sx, 12, 2, sx, 13, 2, '#3d3836');
+  hv.put(sx - Math.sign(sx), 10, 3, '#6b4a44');
+  hv.put(sx, 7, 6, '#ffb347', true);
+}
+place(hv, 0, 0, 0, head);
+const tail = new THREE.Group(); tail.position.set(0, 1 * S, 0); body.add(tail);
+const tv = new V(S * 0.75);
+for (let k = 0; k < 12; k++) tv.put(0, Math.round(-k * k / 12), -k, pick(skin));
+place(tv, 0, 0, 0, tail);
+const yawLight = new THREE.PointLight(0xffb347, 6, 6, 2); head.add(yawLight); yawLight.position.set(0, 7 * S, 8 * S);
+
+// ---------- Mictlantecuhtli & Mictecacíhuatl, lords of Mictlán ----------
+// Seated skeletal rulers on basalt thrones flanking the stairway (codex iconography:
+// he wears owl feathers and amate paper rosettes; she has dark hair and the open jaw that swallows the stars).
+const BONE = ['#d6cfbd', '#cdc5b1', '#c4bba6'];
+const lords = [];
+function lord(px, pz, ry, isHim) {
+  const s = 0.3, root = new THREE.Group();
+  root.position.set(px, ground(px, pz) + s / 2, pz); root.rotation.y = ry; world.add(root);
+  const v = new V(s);
+  // throne
+  v.fill(-6, 0, -6, 6, 6, 4, basalt);
+  v.fill(-6, 7, -7, 6, 26, -6, (x, y) => (y % 6 == 3 && Math.abs(x) < 5) ? '#c9c0ab' : basalt());
+  for (const x of [-4, 0, 4]) { v.fill(x - 1, 27, -7, x + 1, 29, -6, '#c9c0ab'); v.put(x - 1, 28, -6, '#0d0c10'); v.put(x + 1, 28, -6, '#0d0c10'); }
+  // legs, pelvis, ribcage
+  if (isHim) {
+    for (const sx of [-1, 1]) { v.fill(sx * 2 - 1, 7, -2, sx * 2 + 1, 8, 6, () => pick(BONE)); v.fill(sx * 2, 0, 6, sx * 2 + 1, 6, 7, () => pick(BONE)); v.fill(sx * 2 - 1, 0, 8, sx * 2 + 1, 0, 9, () => pick(BONE)); }
+    v.fill(-3, 8, 0, 3, 10, 2, '#5a1f1a'); // maxtlatl loincloth
+    v.fill(-1, 6, 3, 1, 8, 3, '#5a1f1a');
+  } else {
+    v.fill(-4, 0, -3, 4, 10, 8, (x, y, z) => (z == 8 && (x + y) % 4 == 0) ? '#c9c0ab' : pick(['#2b2628', '#241f22'])); // skirt with bone crosses
+    v.fill(-1, 0, 9, 1, 0, 9, () => pick(BONE));
+  }
+  v.fill(-3, 9, -3, 3, 10, -1, () => pick(BONE));
+  for (let y = 11; y <= 19; y++) v.fill(-4, y, -3, 4, y, 1, y % 2 ? '#2a2224' : pick(BONE));
+  v.fill(0, 11, 1, 0, 19, 1, () => pick(BONE)); // sternum
+  v.fill(-5, 19, -2, 5, 19, 0, () => pick(BONE));
+  if (!isHim) v.fill(-5, 15, -3, 5, 18, 2, (x, y, z) => (Math.abs(x) + (18 - y) < 6) ? (y == 15 ? '#6e2a1f' : '#b8a274') : null); // quechquemitl
+  place(v, 0, 0, 0, root);
+  // arms
+  const arms = [-1, 1].map(sx => {
+    const av = new V(s), piv = new THREE.Group();
+    av.fill(0, -7, 0, 1, 0, 1, () => pick(BONE));
+    av.fill(0, -8, 0, 1, -7, 7, () => pick(BONE));
+    av.fill(0, -8, 8, 1, -7, 9, '#b3ab98');
+    piv.position.set(sx * 5.5 * s, 19 * s, -1 * s); root.add(piv); place(av, -0.15, 0, 0, piv);
+    return piv;
+  });
+  // head
+  const head = new THREE.Group(); head.position.set(0, 20 * s, -1 * s); root.add(head);
+  const hv = new V(s);
+  hv.fill(-1, 0, -1, 1, 1, 0, () => pick(BONE));
+  hv.fill(-3, 4, -3, 3, 9, 3, () => pick(BONE));
+  hv.fill(-2, 2, -2, 2, 3, 3, () => pick(BONE));
+  for (const sx of [-1, 1]) { hv.fill(sx * 2 - (sx > 0 ? 1 : 0), 6, 3, sx * 2 + (sx > 0 ? 0 : 1), 7, 3, '#0a090c'); hv.put(sx * 1, 6, 3, isHim ? '#9fe3ff' : '#ffb347', true); }
+  hv.put(0, 5, 3, '#0a090c');
+  for (let x = -2; x <= 2; x++) hv.put(x, 3, 3, x % 2 ? '#e8e2d2' : '#1a1618'); // teeth
+  if (isHim) {
+    for (let y = 8; y <= 17; y++) for (let x = -(y - 4); x <= y - 4; x++) if (Math.abs(x) <= 8 && (y - 8) * 1.2 > Math.abs(x) - 4) hv.put(x, y, -4, (x + y) % 3 ? pick(['#6d6258', '#8a7f72', '#5a5048']) : '#d6cfbd'); // owl-feather crest
+    for (const sx of [-1, 1]) { hv.fill(sx * 4, 5, -1, sx * 4, 7, 1, '#c9b48a'); hv.put(sx * 4, 6, 0, '#6e2a1f'); hv.fill(sx * 4, 2, 0, sx * 4, 4, 0, '#c9c0ab'); } // amate rosettes, bone ear-spools
+    hv.fill(-3, 10, -2, 3, 10, 2, '#c9b48a');
+  } else {
+    hv.fill(-4, 1, -4, 4, 9, -3, '#141216'); hv.fill(-4, 3, -2, -4, 9, 2, '#141216'); hv.fill(4, 3, -2, 4, 9, 2, '#141216'); // long dark hair
+    hv.fill(-3, 10, -3, 3, 10, 3, '#141216');
+    for (const x of [-2, 0, 2]) hv.put(x, 9, 3, '#c9b48a'); // headband
+  }
+  place(hv, 0, 0, 0, head);
+  // open jaw (hers swallows the stars)
+  const jaw = new THREE.Group(); jaw.position.set(0, 3 * s, 0); head.add(jaw);
+  const jv = new V(s); jv.fill(-2, -2, -1, 2, -1, 3, () => pick(BONE)); for (let x = -2; x <= 2; x++) jv.put(x, 0, 3, x % 2 ? '#e8e2d2' : '#1a1618');
+  place(jv, 0, 0, 0, jaw);
+  let owl = null;
+  if (isHim) { // owl perched on the throne
+    const ov = new V(0.2);
+    ov.fill(-2, 0, -2, 2, 5, 2, () => pick(['#6d6258', '#7d7166'])); ov.fill(-2, 6, -2, 2, 9, 2, '#7d7166');
+    ov.fill(-2, 10, -2, -2, 11, -2, '#5a5048'); ov.fill(2, 10, -2, 2, 11, -2, '#5a5048');
+    ov.put(-1, 8, 3, '#ffb347', true); ov.put(1, 8, 3, '#ffb347', true); ov.put(0, 7, 3, '#2a2224');
+    owl = new THREE.Group(); owl.position.set(-4 * s, 30 * s, -6.5 * s); root.add(owl); place(ov, 0, 0, 0, owl);
+  }
+  lords.push({ root, head, jaw, arms, owl, isHim });
+}
+lord(11, 10, -0.35, true);
+lord(-11, 10, 0.35, false);
+
+// ---------- waterfall + river flow ----------
+const NF = 320;
+const fallMesh = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color: 0x10131c, emissive: 0x16222f, roughness: 0.2, metalness: 0.5 }), NF);
+const fj = Array.from({ length: NF }, () => [rnd() - 0.5, rnd() - 0.5, rnd()]);
+world.add(fallMesh);
+const NS = 40;
+const streaks = new THREE.InstancedMesh(box, new THREE.MeshBasicMaterial({ color: 0x223246 }), NS);
+world.add(streaks);
+const o3 = new THREE.Object3D();
+
+// ---------- floating stones ----------
+const stones = [];
+seed = 5;
+for (let i = 0; i < 14; i++) {
+  const v = new V(0.6);
+  for (let x = -2; x <= 2; x++) for (let y = -2; y <= 1; y++) for (let z = -2; z <= 2; z++)
+    if (x * x + y * y * 1.5 + z * z < 5 + rnd() * 2) v.put(x, y, z, pick(['#2b292e', '#3a3436', '#5c4630', '#c4bba6']));
+  v.put(0, -3, 0, '#9fd2ff', true);
+  const a = rnd() * Math.PI * 2, r = 22 + rnd() * 16;
+  const g = place(v, Math.cos(a) * r, -6 - rnd() * 24, Math.sin(a) * r);
+  stones.push({ g, y: g.position.y, ph: rnd() * 6 });
+}
+
+// ---------- particles ----------
+function points(n, color, size, opacity) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const p = new THREE.Points(geo, new THREE.PointsMaterial({ color, size, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
+  world.add(p); return p;
+}
+const motes = points(900, 0xa9c8e6, 0.32, 0.75);
+const moteSeed = Array.from({ length: 900 }, () => [rnd() * 40, rnd() * Math.PI * 2, rnd() * 90, 0.4 + rnd()]);
+const dust = points(220, 0xb08a5a, 0.22, 0.6);
+const dustSeed = Array.from({ length: 220 }, () => [rnd() * 80, rnd() * 50 - 25, rnd() * 5, rnd() * 6]);
+
+// ---------- mountains & mist ----------
+seed = 3;
+const M = new V(4);
+for (let cx = -66; cx <= 66; cx++) for (let cz = -66; cz <= 66; cz++) {
+  const dist = Math.hypot(cx, cz) * 4;
+  if (dist < 170 || dist > 260) continue; // stay outside the 135-unit camera orbit
+  const hgt = Math.floor(Math.pow(noise(cx * 0.12, cz * 0.12), 1.4) * 18 + noise(cx * 0.4, cz * 0.4) * 4 + (dist - 170) / 10);
+  for (let y = -14; y <= hgt; y++)
+    M.put(cx, y, cz, y >= hgt - 1 ? '#5b5866' : (y + 40) % 5 == 0 ? '#6e6a66' : pick(['#3c3a45', '#35333d', '#413e48']));
+}
+scene.add(M.build());
+const clouds = [];
+for (let i = 0; i < 34; i++) {
+  const m = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ color: 0x4a4558, transparent: true, opacity: 0.07 + rnd() * 0.08, depthWrite: false }));
+  m.scale.set(20 + rnd() * 40, 3 + rnd() * 5, 10 + rnd() * 18);
+  const a = rnd() * Math.PI * 2, r = 165 + rnd() * 80;
+  m.position.set(Math.cos(a) * r, -45 + rnd() * 50, Math.sin(a) * r);
+  m.rotation.y = -a;
+  scene.add(m); clouds.push({ m, a, r, s: (rnd() - 0.5) * 0.01 });
+}
+
+// ---------- bats & owls ----------
+const flyers = [];
+function flyer(sc, color, flap) {
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 1 });
+  const g = new THREE.Group();
+  const b = new THREE.Mesh(box, mat); b.scale.set(0.5, 0.4, 1); g.add(b);
+  const wings = [-1, 1].map(s => { const p = new THREE.Group(); const w = new THREE.Mesh(box, mat); w.scale.set(1.6, 0.08, 0.7); w.position.x = s * 0.8; p.add(w); g.add(p); return p; });
+  g.scale.setScalar(sc); scene.add(g);
+  flyers.push({ g, wings, flap, r: 55 + rnd() * 35, y: 22 + rnd() * 18, sp: (0.08 + rnd() * 0.06) * (rnd() < 0.5 ? 1 : -1), ph: rnd() * 6 });
+}
+for (let i = 0; i < 7; i++) flyer(1, 0x141218, 11);
+for (let i = 0; i < 2; i++) flyer(2, 0x5d5650, 2);
+
+// ---------- animation ----------
+// ---------- satellite islets, bridges and skeleton life ----------
+// Built after everything else (own seed) so the central island stays exactly as it was.
+seed = 1234;
+const isl2 = new V(1);
+const key = (x, z) => Math.round(x) + ',' + Math.round(z);
+function islet(cx, cz, r) {
+  for (let x = cx - r - 4; x <= cx + r + 4; x++) for (let z = cz - r - 4; z <= cz + r + 4; z++) {
+    const d = Math.hypot(x - cx, z - cz) / r + (noise(x * 0.15 + 3, z * 0.15) - 0.5) * 0.3;
+    if (d > 1 || top[x + ',' + z] !== undefined) continue;
+    const b = 3 - Math.floor(Math.pow(1 - d, 0.6) * r * 0.9 + noise(x * 0.3, z * 0.3) * 4);
+    top[x + ',' + z] = 3;
+    for (let y = b; y <= 3; y++)
+      isl2.put(x, y, z, y == 3 ? pick(['#7d6038', '#6b4d30', '#5f6450', '#585450', '#8a6a3e']) : y > 1 ? pick(['#5c4630', '#4f3d2c']) : (y + 60) % 7 == 0 ? pick(['#c4bba6', '#b3ab98']) : pick(['#2b292e', '#35302f', '#24232a', '#3a3436']));
+  }
+}
+// plank bridge filling only the gap between the central island edge and the islet
+function bridge(cx, cz) {
+  const L = Math.hypot(cx, cz), ux = cx / L, uz = cz / L, px = -uz, pz = ux;
+  let d = 12, yA = 3;
+  while (top[key(ux * d, uz * d)] !== undefined) { yA = top[key(ux * d, uz * d)]; d += 0.5; }
+  const d0 = d;
+  while (top[key(ux * d, uz * d)] === undefined && d < L) d += 0.5;
+  const d1 = d, mine = new Set();
+  for (let dd = d0 - 1; dd <= d1 + 1; dd += 0.25) {
+    const y = Math.round(lerp(yA, 3, Math.min(1, Math.max(0, (dd - d0) / (d1 - d0)))));
+    for (let w = -1.5; w <= 1.5; w += 0.5) {
+      const k = key(ux * dd + px * w, uz * dd + pz * w), [x, z] = k.split(',').map(Number);
+      if (top[k] === undefined || mine.has(k)) { isl2.put(x, y, z, pick(['#4a3324', '#3c2a1e', '#56402c'])); top[k] = y; mine.add(k); }
+    }
+    for (const w of [-2.5, 2.5]) {
+      const k = key(ux * dd + px * w, uz * dd + pz * w), [x, z] = k.split(',').map(Number);
+      if (top[k] === undefined) { isl2.put(x, y + 1, z, '#6b5a3e'); if (Math.round(dd * 4) % 12 == 0) isl2.put(x, y + 2, z, '#3a2a1e'); }
+    }
+  }
+  return { a: new THREE.Vector3(ux * d0, 0, uz * d0), b: new THREE.Vector3(ux * (d1 + 3), 0, uz * (d1 + 3)), ux, uz };
+}
+const ISL = { taller: [-60, 4, 13], pelota: [8, -60, 12], musica: [60, -18, 12], flor: [-42, 46, 11], mercado: [52, 30, 11], milpa: [-5, 62, 11], tlacuilo: [40, -47, 10], temazcal: [-21, -58, 10], patolli: [-49, -35, 10], guerreros: [38, 71, 10], sacrificio: [-72, 35, 10], rituales: [-76, -25, 10] };
+const bridges = {};
+for (const n in ISL) { islet(...ISL[n]); bridges[n] = bridge(ISL[n][0], ISL[n][1]); }
+
+// ball court walls (walkable on top) on the pelota islet
+for (let x = 1; x <= 15; x++) for (const z of [-64, -56]) { isl2.fill(x, 4, z, x, 5, z, (xx, y) => y == 5 && x % 3 == 0 ? '#bdb5a3' : basalt()); top[x + ',' + z] = 5; }
+place(isl2, 0, 0, 0);
+
+const S2 = 0.2, SB = ['#d6cfbd', '#cdc5b1', '#e0d9c6'];
+const skels = [], fires = [];
+const atRoot = (x, z, ry, parent = world) => { const g = new THREE.Group(); g.position.set(x, ground(x, z), z); g.rotation.y = ry; parent.add(g); return g; };
+const face = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
+function skeleton(x, z, ry, o = {}) {
+  const root = atRoot(x, z, ry), pel = new THREE.Group(); pel.position.y = 6 * S2; root.add(pel);
+  const torso = new THREE.Group(); pel.add(torso);
+  const tv = new V(S2);
+  tv.fill(-1, 0, 0, 1, 1, 0, () => pick(SB)); tv.fill(0, 0, 0, 0, 7, 0, () => pick(SB));
+  for (const y of [3, 5, 6]) tv.fill(-2, y, -1, 2, y, 1, (xx, yy, zz) => (Math.abs(xx) == 2 || Math.abs(zz) == 1) ? pick(SB) : null);
+  tv.fill(-2, 7, 0, 2, 7, 0, () => pick(SB));
+  if (o.cloth) { tv.fill(-2, 0, -1, 2, 0, 1, o.cloth); tv.fill(-1, -2, 1, 1, -1, 1, o.cloth); }
+  place(tv, 0, 0, 0, torso);
+  const limb = (parent, px, py, len) => {
+    const v = new V(S2), piv = new THREE.Group(); piv.position.set(px, py, 0); parent.add(piv);
+    v.fill(0, -len, 0, 0, -1, 0, () => pick(SB)); v.put(0, -len - 1, len == 5 ? 0 : 1, '#b3ab98');
+    place(v, 0, 0, 0, piv); return piv;
+  };
+  const ll = limb(pel, S2, 0, 5), rl = limb(pel, -S2, 0, 5), la = limb(torso, 3 * S2, 7 * S2, 5), ra = limb(torso, -3 * S2, 7 * S2, 5);
+  const head = new THREE.Group(); head.position.y = 8 * S2; torso.add(head);
+  const hv = new V(S2);
+  hv.put(0, 0, 0, pick(SB)); hv.fill(-2, 1, -2, 2, 4, 2, () => pick(SB));
+  hv.put(-1, 3, 2, '#0a090c'); hv.put(1, 3, 2, '#0a090c'); hv.put(0, 2, 2, '#1a1618');
+  for (let x = -1; x <= 1; x++) hv.put(x, 1, 2, x ? '#e8e2d2' : '#1a1618');
+  if (o.band) hv.fill(-2, 4, -2, 2, 4, 2, o.band);
+  if (o.feather) { hv.fill(0, 5, -2, 0, 9, -2, '#3d6b5a'); hv.fill(-1, 5, -2, -1, 7, -2, '#a8742e'); hv.fill(1, 5, -2, 1, 7, -2, '#a8742e'); }
+  place(hv, 0, 0, 0, head);
+  const k = { root, pel, torso, head, la, ra, ll, rl };
+  if (o.act) skels.push({ k, act: o.act });
+  return k;
+}
+const hold = (part, v, x = 0, y = 0, z = 0) => place(v, x, y, z, part);
+const sitP = k => { k.pel.position.y = S2; k.ll.rotation.x = k.rl.rotation.x = -1.5; };
+const walkP = (k, e, f = 6, amp = 0.5) => {
+  const w = Math.sin(e * f);
+  k.ll.rotation.x = w * amp; k.rl.rotation.x = -w * amp; k.la.rotation.x = -w * amp * 0.8; k.ra.rotation.x = w * amp * 0.8;
+  k.pel.position.y = 6 * S2 + Math.abs(Math.cos(e * f)) * 0.06;
+};
+const pathP = (k, a, b, period, e) => { // ping-pong walk between a and b
+  const u = (e / period) % 2, f = u < 1 ? u : 2 - u, x = lerp(a.x, b.x, f), z = lerp(a.z, b.z, f);
+  k.root.position.set(x, ground(x, z), z);
+  k.root.rotation.y = face(a.x, a.z, b.x, b.z) + (u < 1 ? 0 : Math.PI);
+  return f;
+};
+function fire(x, z, parent) {
+  const v = new V(S2);
+  v.fill(-2, 0, 0, 2, 0, 0, '#3a2a1e'); v.fill(0, 0, -2, 0, 0, 2, '#3a2a1e');
+  v.fill(-1, 1, -1, 1, 1, 1, '#ff8a3a', true); v.fill(0, 2, 0, 0, 3, 0, '#ffc06a', true);
+  if (parent) place(v, 0, 0, 0, parent); else place(v, x, ground(x, z) + S2 / 2, z);
+  fires.push(ember(x, ground(x, z) + 1, z, 25));
+}
+const vox = (fn, s = S2) => { const v = new V(s); fn(v); return v; };
+const CLOTH = ['#5a1f1a', '#a8742e', '#2b2628', '#c9b48a', '#6e2a1f'];
+
+// -- taller (workshop): potter, weaver, cook, sweeper
+{
+  const [cx, cz] = ISL.taller;
+  house(cx - 6, cz - 6, 0.3);
+  tree(cx - 8, cz + 8);
+  const potter = skeleton(cx + 4, cz + 4, Math.PI / 2, { cloth: CLOTH[0], act: (k, e) => { sitP(k); k.torso.rotation.x = 0.35; k.la.rotation.x = k.ra.rotation.x = -1.1 + Math.sin(e * 2) * 0.08; wheel.rotation.y = e * 4; } });
+  const wheel = new THREE.Group(); wheel.position.set(0, 0.1, 1.3); potter.root.add(wheel);
+  hold(wheel, vox(v => { v.fill(-2, 0, -2, 2, 0, 2, '#4a3324'); v.fill(-1, 1, -1, 1, 3, 1, '#9a6440'); v.put(0, 3, 0, '#3b2216'); }));
+  const weaver = skeleton(cx, cz + 7, 0, { cloth: CLOTH[3], band: '#6e2a1f', act: (k, e) => { sitP(k); k.torso.rotation.x = 0.15 + Math.sin(e * 1.5) * 0.05; k.la.rotation.x = k.ra.rotation.x = -1.2; k.la.rotation.z = Math.sin(e * 1.5) * 0.3; k.ra.rotation.z = Math.sin(e * 1.5) * 0.3; } });
+  hold(weaver.root, vox(v => { v.fill(0, 0, 11, 0, 7, 11, '#3a2a1e'); for (let z = 2; z <= 10; z++) v.fill(-2, 4, z, 2, 4, z, (x) => ((x + z) % 3 ? '#a5793c' : '#7e2f22')); }));
+  const cook = skeleton(cx + 1, cz - 4, -Math.PI / 2, { cloth: CLOTH[4], act: (k, e) => { k.torso.rotation.x = 0.3; k.ra.rotation.x = -1.1 + Math.sin(e * 3) * 0.2; k.ra.rotation.z = Math.cos(e * 3) * 0.2; k.la.rotation.x = -0.3; } });
+  const pot = atRoot(cx - 0.4, cz - 4, 0);
+  fire(cx - 0.4, cz - 4, pot);
+  hold(pot, vox(v => { v.fill(-2, 2, -2, 2, 5, 2, '#3b2a20'); v.fill(-1, 5, -1, 1, 5, 1, '#5a3a22'); }));
+  hold(cook.ra, vox(v => v.fill(0, -9, 0, 0, -5, 0, '#4a3324')));
+  const sweeper = skeleton(cx + 6, cz - 2, 0, { cloth: CLOTH[1], act: (k, e) => { pathP(k, { x: cx + 6, z: cz + 1 }, { x: cx + 6, z: cz - 7 }, 9, e); walkP(k, e, 3, 0.3); k.la.rotation.x = k.ra.rotation.x = -0.5; k.la.rotation.z = k.ra.rotation.z = Math.sin(e * 3) * 0.35; } });
+  hold(sweeper.ra, vox(v => { v.fill(0, -12, 0, 0, -5, 0, '#4a3324'); v.fill(-1, -14, -1, 1, -13, 1, '#a8742e'); }));
+}
+
+// -- pelota (ball game)
+const ballGame = { players: [] };
+{
+  const [cx, cz] = ISL.pelota;
+  ballGame.a = new THREE.Vector3(cx - 3.2, 0, cz); ballGame.b = new THREE.Vector3(cx + 3.2, 0, cz);
+  for (const [px, ry, side] of [[cx - 4, Math.PI / 2, 0], [cx + 4, -Math.PI / 2, 1]])
+    ballGame.players.push({ side, k: skeleton(px, cz, ry, { cloth: side ? CLOTH[0] : CLOTH[1], band: side ? '#5a1f1a' : '#a8742e' }) });
+  ballGame.ball = place(vox(v => v.fill(-1, -1, -1, 1, 1, 1, '#1a1714')), cx, 5, cz);
+  for (const wz of [cz - 3.6, cz + 3.6]) { const r = place(vox(v => { for (let a = 0; a < 6.28; a += 0.2) v.put(Math.round(Math.cos(a) * 3), Math.round(Math.sin(a) * 3), 0, '#4a4544'); }, 0.25), cx, 5.6, wz); }
+  for (const sx of [-2, 2]) skeleton(cx + sx, cz - 4, 0, { cloth: pick(CLOTH), act: (k, e) => { sitP(k); k.la.rotation.x = k.ra.rotation.x = -1.3; const c = 0.15 + 0.15 * Math.abs(Math.sin(e * 7 + sx)); k.la.rotation.z = -c; k.ra.rotation.z = c; } });
+  skeleton(cx + 10, cz + 2, -Math.PI / 2, { band: '#2b2628', act: (k, e) => { k.head.rotation.y = Math.sin(e * 1.95) * 0.6; k.la.rotation.x = -0.4; } }); // referee follows the ball
+}
+
+// -- musica (music and dance)
+{
+  const [cx, cz] = ISL.musica;
+  fire(cx, cz);
+  for (let i = 0; i < 5; i++) skeleton(cx, cz, 0, { cloth: CLOTH[i % 5], feather: true, act: (k, e) => {
+    const a = i / 5 * Math.PI * 2 + e * 0.45, x = cx + Math.cos(a) * 3.6, z = cz + Math.sin(a) * 3.6;
+    k.root.position.set(x, ground(x, z), z); k.root.rotation.y = Math.atan2(-Math.sin(a), Math.cos(a)) + Math.sin(e * 2) * 0.3;
+    walkP(k, e, 5, 0.6); const up = 2.3 + Math.sin(e * 5 + i) * 0.4; k.la.rotation.z = up; k.ra.rotation.z = -up;
+  } });
+  const drummer = skeleton(cx - 5, cz - 6, face(cx - 5, cz - 6, cx, cz), { cloth: CLOTH[2], act: (k, e) => { const b = Math.max(0, Math.sin(e * 8)); k.la.rotation.x = -1 + b * 0.5; k.ra.rotation.x = -1 + Math.max(0, -Math.sin(e * 8)) * 0.5; k.head.rotation.x = Math.sin(e * 8) * 0.05; } });
+  hold(drummer.root, vox(v => { for (let y = 0; y <= 7; y++) for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) if (x * x + z * z <= 5) v.put(x, y, z, y == 7 ? '#c9b48a' : y == 2 || y == 3 ? '#3a2a1e' : '#6b4423'); }), 0, S2 / 2, 1.5);
+  const tepo = skeleton(cx + 5, cz - 6, face(cx + 5, cz - 6, cx, cz), { cloth: CLOTH[3], act: (k, e) => { sitP(k); k.la.rotation.x = -1.1 + Math.max(0, Math.sin(e * 6)) * 0.4; k.ra.rotation.x = -1.1 + Math.max(0, Math.cos(e * 6)) * 0.4; } });
+  hold(tepo.root, vox(v => { v.fill(-4, 0, -1, 4, 2, 1, '#6b4423'); v.fill(-2, 2, 0, 2, 2, 0, '#1a1210'); }), 0, S2 / 2, 1.4);
+  const flute = skeleton(cx + 6, cz + 3, face(cx + 6, cz + 3, cx, cz), { cloth: CLOTH[4], act: (k, e) => { k.la.rotation.x = k.ra.rotation.x = -1.4; k.la.rotation.z = -0.5; k.ra.rotation.z = 0.5; k.head.rotation.x = 0.1 + Math.sin(e * 3) * 0.08; k.torso.rotation.z = Math.sin(e * 1.5) * 0.08; } });
+  hold(flute.head, vox(v => v.fill(0, 0, 0, 0, 0, 5, '#9a6440')), 0, 1.5 * S2, 2.5 * S2).rotation.x = 0.5;
+}
+
+// -- flor (cempasúchitl field, petal bridge, offering carrier with a xolo pup, fisher)
+const pup = { g: null };
+{
+  const [cx, cz] = ISL.flor, br = bridges.flor;
+  const F = new V(S2);
+  for (let i = 0; i < 140; i++) {
+    const a = rnd() * Math.PI * 2, r = 2 + rnd() * 6.5, fx = cx + 2 + Math.cos(a) * r, fz = cz - 1 + Math.sin(a) * r;
+    if (top[key(fx, fz)] === undefined) continue;
+    const [x, y, z] = at(fx, fz), h = 2 + Math.floor(rnd() * 2);
+    F.fill(x, y, z, x, y + h, z, '#4f6b3a');
+    F.fill(x - 1, y + h + 1, z - 1, x + 1, y + h + 1, z + 1, () => pick(['#e8891e', '#f2a33a', '#d9771a']));
+    F.put(x, y + h + 2, z, '#c45f12');
+  }
+  for (let f = 0; f <= 1; f += 0.01) { // petal path along the bridge
+    const px = lerp(br.a.x, br.b.x, f) + (rnd() - 0.5) * 2.2, pz = lerp(br.a.z, br.b.z, f) + (rnd() - 0.5) * 2.2, [x, y, z] = at(px, pz);
+    F.put(x, y, z, pick(['#e8891e', '#f2a33a']));
+  }
+  place(F, 0, 0, 0);
+  for (const [gx, gz, ph] of [[cx - 1, cz + 2, 0], [cx + 4, cz - 4, 2]]) skeleton(gx, gz, ph, { cloth: CLOTH[3], act: (k, e) => { const b = 0.5 + 0.5 * Math.sin(e * 1.2 + ph); k.torso.rotation.x = 0.4 + b * 0.6; k.la.rotation.x = k.ra.rotation.x = -0.3 - b * 0.5; k.head.rotation.x = 0.2; } });
+  const carrier = skeleton(br.a.x, br.a.z, 0, { cloth: CLOTH[0], act: (k, e) => {
+    const f = pathP(k, br.a, br.b, 14, e); walkP(k, e, 5, 0.45); k.la.rotation.x = k.ra.rotation.x = 0; k.la.rotation.z = 2.8; k.ra.rotation.z = -2.8;
+    const pf = Math.min(1, Math.max(0, f + ((e / 14) % 2 < 1 ? -0.05 : 0.05))), x = lerp(br.a.x, br.b.x, pf), z = lerp(br.a.z, br.b.z, pf);
+    pup.g.position.set(x, ground(x, z) + 0.7 + Math.abs(Math.sin(e * 9)) * 0.08, z); pup.g.rotation.y = k.root.rotation.y;
+  } });
+  hold(carrier.head, vox(v => { v.fill(-2, 0, -2, 2, 2, 2, '#8a6a3e'); v.fill(-1, 3, -1, 1, 3, 1, () => pick(['#e8891e', '#f2a33a'])); }), 0, 5 * S2, 0);
+  pup.g = place(vox(v => {
+    v.fill(-1, 0, -3, 1, 2, 3, () => pick(skin)); for (const [a, b] of [[-1, -2], [1, -2], [-1, 2], [1, 2]]) v.fill(a, -3, b, a, -1, b, () => pick(skin));
+    v.fill(-1, 2, 3, 1, 4, 6, () => pick(skin)); v.fill(-1, 5, 4, -1, 6, 4, '#3d3836'); v.fill(1, 5, 4, 1, 6, 4, '#3d3836');
+    v.put(-1, 3, 6, '#ffb347', true); v.put(1, 3, 6, '#ffb347', true); v.fill(0, 2, -5, 0, 3, -4, () => pick(skin));
+  }), 0, 0, 0);
+  const ux = (cx) / Math.hypot(cx, cz), uz = cz / Math.hypot(cx, cz), fx = cx + ux * 8, fz = cz + uz * 8;
+  const fisher = skeleton(fx, fz, Math.atan2(ux, uz), { cloth: CLOTH[2], band: '#c9b48a', act: (k, e) => { sitP(k); k.ra.rotation.x = -1.2 + Math.sin(e * 0.8) * 0.05; k.la.rotation.x = -0.8; k.head.rotation.x = 0.25; } });
+  const rod = hold(fisher.ra, vox(v => v.fill(0, 0, 0, 0, 0, 16, '#4a3324')), 0, -6 * S2, 0);
+  const line = new THREE.Mesh(new THREE.BoxGeometry(0.03, 9, 0.03).translate(0, -4.5, 0), new THREE.MeshBasicMaterial({ color: 0x9a948a }));
+  line.position.set(0, 0, 16 * S2); line.rotation.x = 1.2; rod.add(line);
+}
+// -- mercado (tianguis): sellers on petates, strolling buyers, a tameme with a tumpline
+{
+  const [cx, cz] = ISL.mercado, br = bridges.mercado;
+  [['#e8c04a', '#c9a032'], ['#a8321f', '#7e2f22'], ['#5a3a22', '#4a3324'], ['#3d8f87', '#2f6f69']].forEach(([a, b], i) => { // maíz, chile, cacao, jade
+    const gx = cx - 6 + i * 4, gz = cz - 2;
+    hold(atRoot(gx, gz, 0), vox(v => { v.fill(-5, 0, -4, 5, 0, 4, (x, y, z) => (x + z) % 2 ? '#a5793c' : '#8a6a3e'); for (const [px, pz] of [[-2, -1], [2, 1]]) v.fill(px - 1, 1, pz - 1, px + 1, 2, pz + 1, (x, y) => y == 2 ? a : b); }), 0, S2 / 2, 0);
+    skeleton(gx, gz - 1.3, 0, { cloth: CLOTH[i], act: (k, e) => { sitP(k); k.ra.rotation.x = -0.6 + Math.sin(e * 2 + i) * 0.3; k.head.rotation.y = Math.sin(e * 0.7 + i) * 0.5; } });
+  });
+  for (const [ph, cl] of [[0, 3], [8, 4]]) skeleton(cx, cz + 3, 0, { cloth: CLOTH[cl], act: (k, e) => { pathP(k, { x: cx - 6, z: cz + 3 }, { x: cx + 6, z: cz + 3 }, 16, e + ph); walkP(k, e, 5, 0.45); } });
+  const porter = skeleton(br.a.x, br.a.z, 0, { cloth: CLOTH[1], act: (k, e) => { pathP(k, br.a, br.b, 18, e); walkP(k, e, 4, 0.35); k.torso.rotation.x = 0.35; k.la.rotation.x = k.ra.rotation.x = -2.6; } });
+  hold(porter.torso, vox(v => { v.fill(-2, 2, -4, 2, 7, -2, '#a8742e'); v.fill(-2, 8, -2, 2, 8, 0, '#4a3324'); }));
+  tree(cx + 6, cz - 6);
+}
+
+// -- milpa: maize, beans and squash, a farmer with a coa, a woman at the metate
+{
+  const [cx, cz] = ISL.milpa, F = new V(S2);
+  for (let x = cx - 7; x <= cx + 3; x += 1.5) for (let z = cz - 4; z <= cz + 6; z += 1.5) {
+    if (top[key(x, z)] === undefined) continue;
+    const [vx, vy, vz] = at(x, z), h = 7 + Math.floor(rnd() * 4);
+    F.fill(vx, vy, vz, vx, vy + h, vz, '#5f7f3a');
+    F.put(vx + 1, vy + h - 3, vz, '#e8c04a'); F.put(vx + 1, vy + h - 4, vz, '#e8c04a'); // elote
+    F.put(vx - 1, vy + h - 2, vz, '#4f6b3a'); F.put(vx, vy + h - 5, vz + 1, '#4f6b3a');
+    F.put(vx, vy + h + 1, vz, '#c9a032');
+    if (rnd() < 0.4) F.fill(vx + 1, vy, vz + 1, vx + 2, vy + 1, vz + 2, '#c98a2a'); // calabaza
+  }
+  place(F, 0, 0, 0);
+  const farmer = skeleton(cx - 2, cz, 0, { cloth: CLOTH[0], band: '#c9b48a', act: (k, e) => { pathP(k, { x: cx - 2, z: cz - 5 }, { x: cx - 2, z: cz + 6 }, 14, e); walkP(k, e, 3, 0.3); const d = Math.max(0, Math.sin(e * 3)); k.torso.rotation.x = 0.2 + d * 0.4; k.ra.rotation.x = k.la.rotation.x = -0.6 - d * 0.6; } });
+  hold(farmer.ra, vox(v => { v.fill(0, -12, 0, 0, -5, 0, '#4a3324'); v.fill(0, -14, 1, 0, -13, 1, '#3a2a1e'); }));
+  const grinder = skeleton(cx + 6, cz - 2, -Math.PI / 2, { cloth: CLOTH[4], act: (k, e) => { sitP(k); const g = Math.sin(e * 2.5); k.torso.rotation.x = 0.5 + g * 0.15; k.la.rotation.x = k.ra.rotation.x = -1 - g * 0.25; } });
+  hold(grinder.root, vox(v => { v.fill(-2, 0, 2, 2, 1, 5, '#3a3436'); v.fill(-2, 2, 4, 2, 2, 4, '#2b292e'); v.fill(3, 0, 3, 4, 1, 4, '#e8c04a'); }), 0, S2 / 2, 0);
+  house(cx + 5, cz + 5, -0.4);
+}
+
+// -- tlacuilo: a painter-scribe at a screenfold codex, an apprentice grinding pigments
+{
+  const [cx, cz] = ISL.tlacuilo, ry = face(cx, cz, 0, 0);
+  const scribe = skeleton(cx, cz, ry, { cloth: CLOTH[3], band: '#a8321f', act: (k, e) => { sitP(k); k.torso.rotation.x = 0.4; k.la.rotation.x = -1.1; k.ra.rotation.x = -1.2 + Math.sin(e * 4) * 0.08; k.ra.rotation.z = Math.sin(e * 1.3) * 0.3; k.head.rotation.y = Math.sin(e * 0.4) * 0.3; } });
+  hold(scribe.root, vox(v => { for (let x = -7; x <= 7; x++) { const y = Math.floor((x + 8) / 4) % 2; v.fill(x, y, 3, x, y, 6, (xx, yy, z) => (x + z) % 5 == 0 ? pick(['#a8321f', '#1a1210', '#3d8f87', '#c98a2a']) : '#efe6cf'); } }), 0, S2 / 2, 0);
+  const appr = skeleton(cx + Math.cos(ry) * 3, cz - Math.sin(ry) * 3, ry, { cloth: CLOTH[1], act: (k, e) => { sitP(k); const g = Math.sin(e * 3); k.torso.rotation.x = 0.4 + g * 0.1; k.ra.rotation.x = k.la.rotation.x = -0.9 - g * 0.2; } });
+  hold(appr.root, vox(v => ['#a8321f', '#1a1210', '#3d8f87', '#c98a2a', '#e8c04a'].forEach((c, i) => { v.fill(i * 3 - 6, 0, 3, i * 3 - 5, 1, 4, '#7a4f33'); v.put(i * 3 - 6, 2, 3, c); })), 0, S2 / 2, 0);
+  house(cx - Math.sin(ry) * 6, cz - Math.cos(ry) * 6, ry);
+}
+
+// -- temazcal: stone steam bath, its fire, a bather and a healer fanning steam with herbs
+{
+  const [cx, cz] = ISL.temazcal, ry = face(cx, cz, 0, 0), gy = ground(cx, cz), sx = Math.sin(ry), sz = Math.cos(ry);
+  hold(atRoot(cx, cz, ry), vox(v => {
+    for (let y = 0; y <= 6; y++) for (let x = -7; x <= 7; x++) for (let z = -7; z <= 7; z++) { const d = Math.hypot(x, y * 1.2, z); if (d <= 7.5 && d > 6.3) v.put(x, y, z, (x + y) % 5 ? pick(['#6e6a66', '#5c5650', '#7a7066']) : '#c4bba6'); }
+    v.fill(-1, 0, 6, 1, 2, 7, '#0d0c10');
+  }, 0.4), 0, 0.2, 0);
+  fire(cx + sz * 4, cz - sx * 4);
+  skeleton(cx + sx * 4.5, cz + sz * 4.5, ry, { cloth: '#efe6cf', act: (k, e) => { sitP(k); k.head.rotation.x = 0.2 + Math.sin(e * 0.6) * 0.1; k.la.rotation.x = k.ra.rotation.x = -0.4; } });
+  const puffs = Array.from({ length: 6 }, () => { const m = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ color: 0xe8e0cc, transparent: true, depthWrite: false })); world.add(m); return m; });
+  const healer = skeleton(cx + sx * 3.5 - sz * 2.5, cz + sz * 3.5 + sx * 2.5, ry + Math.PI / 2, { cloth: CLOTH[4], band: '#3d6b5a', act: (k, e) => {
+    k.ra.rotation.x = -1.2 + Math.sin(e * 4) * 0.4; k.la.rotation.x = -0.3;
+    puffs.forEach((m, i) => { const f = (e * 0.25 + i / 6) % 1; m.position.set(cx + Math.sin(i * 2.4) * f * 2, gy + 3 + f * 6, cz + Math.cos(i * 2.4) * f * 2); m.scale.setScalar(0.6 + f * 1.6); m.material.opacity = 0.3 * (1 - f); });
+  } });
+  hold(healer.ra, vox(v => { v.fill(0, -9, 0, 0, -5, 0, '#4a3324'); v.fill(-1, -12, -1, 1, -10, 1, () => pick(['#4f6b3a', '#5f7f3a', '#3d6b5a'])); }));
+  tree(cx - 6, cz + 4);
+}
+
+// -- patolli: two players on a mat throwing marked beans, onlookers cheering
+{
+  const [cx, cz] = ISL.patolli, gy = ground(cx, cz);
+  hold(atRoot(cx, cz, 0), vox(v => {
+    v.fill(-9, 0, -9, 9, 0, 9, (x, y, z) => (x + z) % 2 ? '#a5793c' : '#8a6a3e');
+    for (let i = -8; i <= 8; i++) if (Math.abs(i) > 1) for (const [x, z] of [[i, -1], [i, 1], [-1, i], [1, i]]) v.put(x, 1, z, i % 2 ? '#1a1210' : '#a8321f');
+    v.fill(-1, 1, -1, 1, 1, 1, '#3d8f87');
+  }), 0, S2 / 2, 0);
+  const beans = place(vox(v => { for (let i = 0; i < 5; i++) v.put(i * 2 - 4, 0, (i % 2) * 2, '#efe6cf'); }), cx, gy + 0.3, cz);
+  for (const side of [0, 1]) skeleton(cx + (side ? 2.6 : -2.6), cz, side ? -Math.PI / 2 : Math.PI / 2, { cloth: CLOTH[side ? 0 : 1], act: (k, e) => {
+    sitP(k); const a = Math.max(0, Math.sin(e * 1.5 + side * Math.PI));
+    k.torso.rotation.x = 0.3 + a * 0.2; k.ra.rotation.x = -0.6 - a * 1.2; k.la.rotation.x = -0.5;
+    if (!side) {
+      beans.position.y = gy + 0.3 + Math.abs(Math.sin(e * 1.5)) * 1.2; beans.rotation.y = e * 3;
+      const n = Math.floor(e * 1.5 / Math.PI); if (n != beans.n) { beans.n = n; SFX.at(beans.position, SFX.clack, 35); } // beans land
+    }
+  } });
+  for (const sz of [-1, 1]) skeleton(cx, cz + sz * 3.6, sz > 0 ? Math.PI : 0, { cloth: pick(CLOTH), act: (k, e) => { const c = Math.max(0, Math.sin(e * 3 + sz)); k.la.rotation.z = c * 2.4; k.ra.rotation.z = -c * 2.4; } });
+  tree(cx + 6, cz + 5);
+}
+
+// rising copal / fire smoke; returns a per-frame updater
+function smoke(x, y, z, n, col = 0xc9c1ae) {
+  const ms = Array.from({ length: n }, () => { const m = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ color: col, transparent: true, depthWrite: false })); world.add(m); return m; });
+  return e => ms.forEach((m, i) => { const f = (e * 0.3 + i / n) % 1; m.position.set(x + Math.sin(i * 2.4 + e * 0.5) * f, y + f * 4, z + Math.cos(i * 2.4) * f); m.scale.setScalar(0.3 + f); m.material.opacity = 0.35 * (1 - f); });
+}
+
+// -- guerreros: eagle and jaguar warriors sparring, youths drilling, a veteran watching
+const spar = { n: 0 };
+{
+  const [cx, cz] = ISL.guerreros;
+  const club = () => vox(v => { v.fill(0, -12, 0, 0, -5, 0, '#4a3324'); for (let y = -12; y <= -8; y++) { v.put(0, y, 1, '#0d0c10'); v.put(0, y, -1, '#0d0c10'); } }); // macuahuitl: obsidian edges
+  const shield = c => vox(v => { for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) if (x * x + z * z <= 10) v.put(x, 0, z, x * x + z * z > 6 ? '#a8742e' : c); }); // chimalli
+  const helm = jag => vox(v => {
+    const c = (x, y, z) => jag ? ((x + y + z) % 3 ? '#c98a2a' : '#1a1210') : '#6b4423';
+    v.fill(-3, 5, -3, 3, 5, 3, c); v.fill(-3, 3, -3, 3, 4, -3, c); v.fill(-3, 3, -2, -3, 4, 2, c); v.fill(3, 3, -2, 3, 4, 2, c);
+    if (jag) { v.put(-2, 6, 0, '#c98a2a'); v.put(2, 6, 0, '#c98a2a'); v.put(-1, 4, 3, '#efe6cf'); v.put(1, 4, 3, '#efe6cf'); }
+    else { v.fill(-1, 5, 3, 1, 6, 5, '#e8c04a'); v.fill(-3, 6, -3, 3, 6, -1, '#efe6cf'); }
+  });
+  for (const side of [0, 1]) {
+    const w = skeleton(cx + (side ? 1.7 : -1.7), cz, side ? -Math.PI / 2 : Math.PI / 2, { cloth: side ? '#c98a2a' : '#efe6cf', act: (k, e) => {
+      const sw = Math.sin(e * 3 + side * Math.PI);
+      k.ra.rotation.x = -1.6 - sw * 1.1; k.la.rotation.x = -1.4; k.torso.rotation.y = sw * 0.25;
+      k.pel.position.y = 6 * S2 - 0.15; k.ll.rotation.x = 0.4; k.rl.rotation.x = -0.4;
+      if (!side) { const n = Math.floor(e * 3 / Math.PI); if (n != spar.n) { spar.n = n; SFX.at(k.root.position, SFX.strike, 40); } } // clubs meet on each swing
+    } });
+    hold(w.head, helm(side)); hold(w.ra, club()); hold(w.la, shield(side ? '#1a1210' : '#a8321f'), 0, -5 * S2, 0);
+  }
+  for (let i = 0; i < 3; i++) {
+    const y = skeleton(cx - 3 + i * 3, cz + 4, Math.PI, { cloth: '#c9b48a', act: (k, e) => { const sw = Math.sin(e * 2); k.ra.rotation.x = -1.4 - sw; k.ll.rotation.x = 0.3; k.rl.rotation.x = -0.3; } });
+    hold(y.ra, club());
+  }
+  skeleton(cx + 4, cz - 3, face(cx + 4, cz - 3, cx, cz), { cloth: CLOTH[0], feather: true, act: (k, e) => { k.ra.rotation.x = -0.5 - Math.max(0, Math.sin(e * 1.5)) * 1.2; k.head.rotation.y = Math.sin(e * 0.8) * 0.4; } });
+}
+
+// -- sacrificio: a small teocalli with the techcatl stone, a tzompantli and black-painted priests with copal
+{
+  const [cx, cz] = ISL.sacrificio, ry = face(cx, cz, 0, 0), gy = ground(cx, cz), sx = Math.sin(ry), sz = Math.cos(ry);
+  const T2 = new V(0.5);
+  for (let i = 0; i < 3; i++) T2.fill(-6 + i * 2, i * 2, -6 + i * 2, 6 - i * 2, i * 2 + 1, 6 - i * 2, (x, y) => y % 2 ? '#3e3a3c' : basalt());
+  for (let y = 0; y < 6; y++) T2.fill(-1, y, 0, 1, y, 7 - y, '#57504d');
+  T2.fill(0, 6, -1, 0, 7, 0, '#1d1b20'); T2.fill(1, 6, -2, 2, 6, -1, '#5b5a48'); // techcatl and cuauhxicalli
+  const tg = place(T2, cx, gy + 0.25, cz); tg.rotation.y = ry;
+  hold(atRoot(cx + sz * 6, cz - sx * 6, ry), vox(v => {
+    v.fill(-8, 0, 0, -8, 14, 0, '#4a3324'); v.fill(8, 0, 0, 8, 14, 0, '#4a3324');
+    for (const y of [4, 8, 12]) { v.fill(-8, y, 0, 8, y, 0, '#3a2a1e'); for (let x = -6; x <= 5; x += 3) { v.fill(x, y - 2, -1, x + 1, y - 1, 0, '#d8d0bd'); v.put(x, y - 1, 1, '#141214'); v.put(x + 1, y - 1, 1, '#141214'); } }
+  }, 0.25), 0, 0.125, 0);
+  const fume = smoke(cx + sx * 5 - sz * 1.2, gy + 1.2, cz + sz * 5 + sx * 1.2, 8);
+  for (const off of [-1.2, 1.2]) {
+    const pr2 = skeleton(cx + sx * 5 + sz * off, cz + sz * 5 - sx * off, ry + Math.PI, { cloth: '#1a1210', band: '#1a1210', act: (k, e) => {
+      k.ra.rotation.x = -0.9 + Math.sin(e * 1.4 + off) * 0.4; k.la.rotation.x = -0.4; k.head.rotation.x = -0.2;
+      if (off < 0) fume(e);
+    } });
+    hold(pr2.ra, vox(v => { v.fill(0, -7, 0, 0, -5, 0, '#4a3324'); v.fill(-1, -9, -1, 1, -8, 1, '#a8742e'); v.put(0, -8, 0, '#ff8a3a', true); })); // sahumador
+  }
+}
+
+// -- rituales: the New Fire, copal, a conch blower and a circle of dancers
+{
+  const [cx, cz] = ISL.rituales, gy = ground(cx, cz);
+  fire(cx, cz); fire(cx + 0.5, cz + 0.4);
+  hold(atRoot(cx, cz + 1.6, 0), vox(v => { v.fill(-4, 0, 0, 4, 1, 1, '#a8742e'); for (const x of [-3, 0, 3]) v.fill(x, 0, -1, x, 2, 2, '#6e2a1f'); }), 0, S2 / 2, 0); // xiuhmolpilli: bundle of 52 years
+  const fume = smoke(cx, gy + 1.5, cz, 10, 0x8a8478);
+  for (let i = 0; i < 6; i++) skeleton(cx, cz, 0, { cloth: CLOTH[i % 5], feather: true, act: (k, e) => {
+    const a = i / 6 * Math.PI * 2 - e * 0.35, x = cx + Math.cos(a) * 4.2, z = cz + Math.sin(a) * 4.2;
+    k.root.position.set(x, ground(x, z) + Math.abs(Math.sin(e * 4 + i)) * 0.15, z); k.root.rotation.y = Math.atan2(Math.sin(a), -Math.cos(a));
+    walkP(k, e, 4, 0.5); k.la.rotation.z = 0.6 + Math.sin(e * 4) * 0.3; k.ra.rotation.z = -0.6 - Math.sin(e * 4) * 0.3; k.torso.rotation.x = 0.2 * Math.sin(e * 2 + i);
+  } });
+  const conch = skeleton(cx + 6, cz - 1, -Math.PI / 2, { cloth: CLOTH[0], band: '#c9b48a', act: (k, e) => { const up = ss(2.5, 3.2, e % 10) - ss(5, 5.6, e % 10); k.la.rotation.x = k.ra.rotation.x = -0.3 - up * 2; k.head.rotation.x = -0.3 * up; fume(e); } });
+  hold(conch.head, vox(v => { v.fill(-1, 2, 3, 1, 3, 6, '#efe6cf'); v.put(0, 3, 7, '#d8a090'); }));
+  const priest = skeleton(cx - 5, cz + 2, face(cx - 5, cz + 2, cx, cz), { cloth: '#1a1210', band: '#1a1210', act: (k, e) => { k.ra.rotation.x = -1 + Math.sin(e * 1.2) * 0.5; k.head.rotation.x = 0.1; } });
+  hold(priest.ra, vox(v => { v.fill(0, -7, 0, 0, -5, 0, '#4a3324'); v.fill(-1, -9, -1, 1, -8, 1, '#a8742e'); v.put(0, -8, 0, '#ff8a3a', true); }));
+}
+
+// a skeleton on the workshop bridge waving at the viewer
+skeleton((bridges.taller.a.x + bridges.taller.b.x) / 2, (bridges.taller.a.z + bridges.taller.b.z) / 2, 0, { cloth: CLOTH[1], act: (k, e) => { k.ra.rotation.z = -2.5 + Math.sin(e * 5) * 0.35; k.root.rotation.y = Math.atan2(camera.position.x - k.root.position.x, camera.position.z - k.root.position.z); } });
+for (const s of skels) s.act = s.act.bind(null, s.k);
+
+// ---------- guide mode (RPG dialogue) ----------
+const XOLO = 'Xolo, guía de almas';
+const STOPS = [
+  { who: XOLO, t: [0, 4, 0], c: [70, 60, 115], h: 'Mictlán', k: 'El lugar de los muertos: cuatro años de viaje a través de nueve niveles.',
+    d: g => { g.steps(4, 57, 46, 57, 12); g.fig(8, 54, { c: 'w' }); g.dog(22, 54); g.temple(54, 54); },
+    pages: [
+    '¡Bienvenido, viajero! Soy un xoloitzcuintle y mi deber es guiar a las almas. Esto es el Mictlán, el lugar de los muertos en la cosmovisión mexica.',
+    'Para los mexicas, el destino después de la muerte no dependía de cómo se vivía, sino de cómo se moría. Los guerreros caídos y las mujeres muertas en el parto acompañaban al Sol. Los ahogados y los fulminados por el rayo iban al Tlalocan, el paraíso de Tláloc.',
+    'Los niños pequeños iban al Chichihuacuauhco, donde un árbol los amamantaba. Y quienes morían de muerte común, que eran la mayoría, emprendían el viaje al Mictlán.',
+    'El Mictlán no era un castigo, sino un descanso. Llegar hasta aquí tomaba cuatro años de viaje a través de nueve niveles.'] },
+  { who: XOLO, t: [0, 15, -11], c: [20, 24, 32], h: 'Los nueve niveles', k: 'Cerros que chocan, obsidiana, vientos cortantes y flechas: cada nivel era una prueba.',
+    d: g => { g.temple(8, 56); g.num(54, 44, 9); g.fig(74, 54, { c: 'w', up: true }); },
+    pages: [
+    'Este gran teocalli representa los nueve niveles del Mictlán. Sus nombres varían según las fuentes coloniales, como el Códice Vaticano A, pero suelen ser: Itzcuintlan, Tepeme Monamictlan, Iztépetl, Itzehecayan y Pancuetlacalocan…',
+    '…seguidos de Temiminaloyan, Teyollocualoyan, Apanohualoyan y, al final, Chiconahualoyan, la morada de los señores de la muerte.',
+    'Cada nivel era una prueba: cerros que chocaban entre sí, un cerro de obsidiana, vientos cortantes, flechas lanzadas por manos invisibles y fieras que devoraban corazones.'] },
+  { who: XOLO, t: [-6, 5, 12], c: [-15, 9, 27], h: 'El río Apanohuaya', k: 'Solo un perro podía cruzar al alma sobre su lomo.',
+    d: g => { g.river(0, 46, 96); g.dog(40, 48); g.fig(42, 42, { sit: true, c: 'w' }); g.fig(8, 44, { c: 'r' }); g.steps(70, 44, 92, 44, 6); },
+    pages: [
+    'Ese de ahí es el guardián, mi hermano mayor. En el primer nivel, Itzcuintlan, el alma tenía que cruzar un río caudaloso: el Apanohuaya.',
+    'Solo un perro podía ayudarla. Por eso muchas familias enterraban un perro junto a sus difuntos. Se decía que el perro reconocía a su amo y lo cruzaba nadando, con el alma sobre su lomo.',
+    'Cuenta la tradición que, si en vida maltrataste a los perros, ninguno querrá ayudarte a cruzar. ¡Trátanos bien!'] },
+  { who: XOLO, t: [-6, 5, 12], c: [0, 6, 21], h: 'Xoloitzcuintle', k: 'De Xólotl, que guía al Sol bajo la tierra, e itzcuintli, perro.',
+    d: g => { g.sun(62, 8); g.dog(30, 50); g.steps(8, 56, 84, 56, 18); },
+    pages: [
+    'Mi nombre viene del náhuatl: Xólotl, el dios gemelo de Quetzalcóatl que acompañaba al Sol en su paso por el inframundo, e itzcuintli, que significa perro.',
+    'Somos una de las razas de perro más antiguas de América: existimos desde hace más de tres mil años. Casi no tenemos pelo y nuestra piel es cálida, por eso también se nos usaba para aliviar dolores.',
+    'En 2016, la Ciudad de México nos declaró patrimonio cultural y viviente. ¡Nada mal para un perro sin pelo!'] },
+  { who: 'Mictlantecuhtli', t: [11, 7, 10], c: [19, 10, 22], h: 'Mictlantecuhtli', k: 'Pidió a Quetzalcóatl tocar un caracol sin agujeros a cambio de los huesos.',
+    d: g => { g.throne(16, 54); g.owl(12, 36); g.fig(16, 54, { sit: true, c: 'r', crest: true, talk: 'k' }); g.shell(44, 54); g.bones(58, 54); g.bones(60, 50); g.fig(80, 54, { flip: true, c: 't', f: true, reach: 5 }); },
+    pages: [
+    'Soy Mictlantecuhtli, señor del Mictlán. Mi tocado lleva plumas de tecolote y rosetas de papel amate. Los tecolotes son mis mensajeros.',
+    'Cuando Quetzalcóatl bajó a pedirme los huesos de las generaciones pasadas para crear a la nueva humanidad, le puse una prueba: hacer sonar un caracol que no tenía agujeros.',
+    'Él llamó a los gusanos para que lo perforaran y a las abejas para que lo hicieran sonar. Al huir, una codorniz lo asustó, tropezó y los huesos se rompieron. Por eso los humanos tenemos distintos tamaños.'] },
+  { who: 'Mictecacíhuatl', t: [-11, 7, 10], c: [-19, 10, 22], h: 'Mictecacíhuatl', k: 'Guarda los huesos. Sus fiestas se unieron al Día de Muertos.',
+    d: g => { g.fig(12, 54, { sit: true, c: 'a', hair: true, talk: 'k' }); g.skull(38, 54); g.flower(48, 54); g.flower(54, 54); g.pot(60, 54); g.flower(72, 54); g.skull(78, 54); },
+    pages: [
+    'Yo soy Mictecacíhuatl, señora del Mictlán. Mi tarea es cuidar los huesos de los muertos.',
+    'En el calendario mexica había dos fiestas dedicadas a los muertos, a mitad del año: Miccailhuitontli, la fiesta de los muertitos, y Hueymiccailhuitl, la gran fiesta de los muertos.',
+    'Con la llegada de los españoles, esas celebraciones se mezclaron con el Día de Todos los Santos y el de los Fieles Difuntos. De esa unión nace el Día de Muertos, que se celebra el 1 y el 2 de noviembre.'] },
+  { who: XOLO, t: [16, 9, 13], c: [27, 14, 25], h: 'Papel amate', k: 'Banderas de corteza, como las almas que ondean en Pancuetlacalocan.',
+    d: g => { for (const x of [16, 40, 64]) g.flag(x, 54); g.scroll(28, 22, 'u'); g.scroll(54, 18, 'u'); g.scroll(78, 24, 'u'); },
+    pages: [
+    '¿Ves esas banderas? Son de papel amate, que se fabrica con la corteza de árboles como el amate. Los mexicas lo usaban en códices, vestimentas rituales y ofrendas.',
+    'Recuerdan al quinto nivel, Pancuetlacalocan, donde las almas ondeaban como banderas. Y el viento que sopla sobre la isla evoca a Itzehecayan, el lugar del viento de obsidiana.'] },
+  { who: XOLO, t: [-3, 4, 13.5], c: [3, 8, 24], h: 'Ofrendas', k: 'Comida, agua y objetos para el viaje. Una cuenta de jade servía como corazón.',
+    d: g => { g.mat(10, 54, 76); g.pot(14, 52); g.pot(26, 52, 'o'); g.skull(40, 52); g.dog(50, 52); g.jade(74, 52); },
+    pages: [
+    'Los mexicas enterraban a sus muertos con ofrendas: comida, agua, herramientas y objetos para el largo viaje. A veces les ponían en la boca una cuenta de jade, que servía como su corazón.',
+    'Las figurillas de perro de barro, como las famosas de Colima, son mucho más antiguas que los mexicas y muestran cuánto se valoraba al perro como compañero en el más allá.'] },
+  { who: 'Calaca alfarero', t: [-60, 5, 4], c: [-44, 15, 22], h: 'El taller', k: 'La muerte es parte del ciclo de la vida: aquí se sigue trabajando.',
+    d: g => { g.fig(10, 54, { sit: true, c: 'r', reach: 4 }); g.pot(22, 54, 'o'); g.pot(30, 54); g.fire(44, 54); g.house(62, 54); },
+    pages: [
+    '¡Ah, visitante! Aquí abajo seguimos trabajando. Para los pueblos mesoamericanos, la muerte era parte del ciclo de la vida, no su opuesto.',
+    'Yo moldeo vasijas como lo hacía en Tenochtitlan. Mi vecina teje en su telar de cintura, igual que hoy lo hacen muchas tejedoras en México, y allá se cocina sobre el fuego.',
+    'En México, a los esqueletos se les llama de cariño "calacas". Hoy somos protagonistas del Día de Muertos.'] },
+  { who: 'Calaca jugador de pelota', t: [8, 5, -60], c: [24, 14, -44], h: 'Ullamaliztli', k: 'Una pelota de hule macizo, golpeada con la cadera. La cancha era un umbral.',
+    d: g => { g.court(8, 54, 80); g.fig(18, 52, { c: 'o', band: 'o' }); g.fig(70, 52, { flip: true, c: 'r', band: 'r' }); g.ball(46, 30); g.steps(28, 40, 44, 32, 4); },
+    pages: [
+    '¡Cuidado con la pelota! Jugamos ullamaliztli, el juego de pelota. La pelota era de hule macizo y pesada, y se golpeaba con la cadera.',
+    'Hacerla pasar por el aro de piedra era dificilísimo. La cancha se llamaba tlachtli y se pensaba como un umbral entre el mundo de los vivos y el inframundo.',
+    'En el Popol Vuh, el libro sagrado de los mayas quichés, los gemelos héroes juegan a la pelota contra los señores de Xibalbá, el inframundo maya.'] },
+  { who: 'Calaca músico', t: [60, 5, -18], c: [47, 14, -1], h: 'Música y danza', k: 'Huéhuetl, teponaztli y silbatos de la muerte en cada ceremonia.',
+    d: g => { g.drum(10, 54); g.fig(18, 54, { c: 'k', reach: 2 }); g.fig(46, 54, { c: 't', f: true, up: true }); g.fig(68, 54, { c: 'o', f: true, up: true, flip: true }); g.scroll(36, 30, 'p'); g.scroll(60, 26, 'p'); },
+    pages: [
+    '¡Tum, tum! Este es el huéhuetl, un tambor vertical con parche de piel, y aquel es el teponaztli, un tambor de madera hendida que da dos tonos.',
+    'La música y la danza acompañaban casi todas las ceremonias mexicas. En Tlatelolco, los arqueólogos encontraron silbatos con forma de cráneo, hoy llamados "silbatos de la muerte", que suenan como un grito.'] },
+  { who: XOLO, t: [-42, 4, 46], c: [-26, 15, 62], h: 'Cempasúchitl', k: 'La flor de veinte pétalos: sus caminos guían a las almas a casa.',
+    d: g => { for (let x = 6; x < 92; x += 7) g.flower(x, 58); g.fig(30, 51, { c: 'r', up: true }); g.dog(44, 51); },
+    pages: [
+    'Este es un campo de cempasúchitl. Su nombre viene del náhuatl cempōhualxōchitl: "flor de veinte pétalos", o de muchos pétalos.',
+    'Es una flor nativa de México que los mexicas ya usaban en rituales y como medicina. Hoy, en Día de Muertos, se hacen caminos con sus pétalos para que su color y su aroma guíen a las almas hasta la ofrenda.',
+    'Por eso el puente de esta isla está cubierto de pétalos: es el camino de regreso de las almas a casa. Y mira, a ese esqueleto lo acompaña un pequeño xolo.'] },
+  { who: 'Calaca comerciante', t: [52, 5, 30], c: [34, 14, 31], h: 'Tianguis', k: 'Se pagaba con granos de cacao y mantas de algodón.',
+    d: g => { g.mat(28, 54, 40); g.pile(32, 52, 'y'); g.pile(42, 52, 'r'); g.pile(52, 52, 'w'); g.fig(12, 54, { c: 'o', reach: 7 }); g.fig(72, 54, { flip: true, c: 't', sit: true, talk: 'k' }); },
+    pages: [
+    '¡Bienvenido al tianguis! En el gran mercado de Tlatelolco se reunían miles de personas cada día. Los españoles que lo vieron en 1519 se asombraron de su tamaño y su orden.',
+    'Aquí no hay monedas: se paga con granos de cacao y con mantas de algodón llamadas quachtli. Unos jueces recorrían el mercado para vigilar los precios y castigar a los tramposos.',
+    'Los cargadores, o tamemes, llevaban la mercancía a la espalda sujeta con un mecapal, una banda apoyada en la frente. ¡En Mesoamérica no había animales de carga!'] },
+  { who: 'Calaca campesino', t: [-5, 5, 62], c: [-14, 14, 46], h: 'Milpa', k: 'Maíz, frijol y calabaza crecen juntos. Se siembra con la coa.',
+    d: g => { for (let x = 40; x < 92; x += 8) g.maize(x, 54); g.pile(44, 54, 'o'); g.pile(68, 54, 'o'); g.fig(14, 54, { c: 'w', band: 'r' }); g.coa(22, 54); },
+    pages: [
+    'Esto es una milpa: maíz, frijol y calabaza sembrados juntos. El maíz sirve de tutor al frijol, el frijol alimenta la tierra y las hojas de calabaza guardan la humedad.',
+    'Sembramos con la coa, un palo para cavar. Alrededor de Tenochtitlan también se cultivaba en chinampas, islotes artificiales sobre el lago. En Xochimilco todavía existen.',
+    'Cuenta la leyenda que Quetzalcóatl se convirtió en hormiga negra para sacar el maíz del Tonacatépetl, el cerro de los mantenimientos. Mi vecina lo muele en el metate para hacer tlaxcalli: tortillas.'] },
+  { who: 'Calaca tlacuilo', t: [40, 5, -47], c: [38, 14, -29], h: 'Tlacuilo', k: 'In tlilli in tlapalli: la tinta negra y la roja, la sabiduría.',
+    d: g => { g.fig(10, 54, { sit: true, c: 'b', band: 'r', reach: 7 }); g.book(28, 54); g.pot(56, 54, 'r'); g.pot(64, 54, 'k'); g.pot(72, 54, 't'); g.pot(80, 54, 'y'); },
+    pages: [
+    'Soy tlacuilo: pinto códices. Los hacemos en papel amate o en piel de venado cubierta de cal, doblados como biombo.',
+    'No escribimos con letras, sino con imágenes, glifos y números de puntos y barras. A la sabiduría la llamábamos in tlilli in tlapalli: la tinta negra, la tinta roja.',
+    'Mi aprendiz muele los colores: rojo de grana cochinilla, negro de hollín, azules y amarillos de plantas y minerales. Por cierto, el modo Códice está pintado a mi manera.'] },
+  { who: 'Calaca curandera', t: [-21, 5, -58], c: [-6, 14, -47], h: 'Temazcal', k: 'La casa de vapor: piedras calientes y agua para sanar el cuerpo.',
+    d: g => { g.dome(30, 54); g.fire(46, 54); g.fig(62, 54, { sit: true, c: 'b', flip: true }); g.fig(76, 54, { c: 'g', up: true, flip: true }); g.scroll(26, 34, 'b'); g.scroll(34, 30, 'b'); },
+    pages: [
+    'Este es un temazcal, del náhuatl temazcalli: "casa de vapor". Se calientan piedras en el fuego, se les echa agua y el vapor llena la cúpula.',
+    'Se usaba para curar, limpiar el cuerpo y cuidar a las mujeres antes y después del parto. Su protectora era Temazcaltoci, "nuestra abuela de los baños". Hoy se sigue usando en muchas partes de México.'] },
+  { who: 'Calaca jugador de patolli', t: [-49, 5, -35], c: [-31, 14, -34], h: 'Patolli', k: 'Cinco frijoles marcados como dados y un tablero en forma de cruz.',
+    d: g => { g.fig(8, 54, { sit: true, c: 'r', reach: 7 }); g.board(28, 54); g.fig(76, 54, { sit: true, c: 'o', flip: true, up: true }); },
+    pages: [
+    '¡Tira los frijoles! Jugamos patolli: se avanza por un tablero en forma de cruz según caigan cinco frijoles marcados, que hacen de dados.',
+    'Se apostaban mantas, cuentas de jade y plumas finas. Los jugadores invocaban a Macuilxóchitl, dios del juego y la fiesta. Después de la conquista, los españoles lo prohibieron.'] },
+  { who: 'Calaca guerrero águila', t: [38, 5, 71], c: [22, 14, 62], h: 'Cuauhtli, Ocelotl', k: 'Guerreros águila y jaguar: en batalla se buscaba capturar, no matar.',
+    d: g => { g.club(13, 50); g.fig(16, 54, { c: 'b', helm: 'eagle' }); g.shield(26, 50); g.shield(56, 50); g.fig(64, 54, { flip: true, c: 'y', helm: 'jaguar' }); g.club(76, 50); },
+    pages: [
+    '¡Firmes! Somos guerreros águila y jaguar, las dos órdenes militares más prestigiosas de los mexicas. Para entrar había que capturar prisioneros en batalla.',
+    'Desde jóvenes, los varones se educaban en el telpochcalli, la casa de los jóvenes, donde aprendían a combatir. Los nobles iban al calmécac, donde también estudiaban religión, astronomía y códices.',
+    'Peleamos con el macuáhuitl, un mazo de madera con filos de obsidiana, y nos cubrimos con el chimalli, un escudo de fibras y plumas. Por cierto: los guerreros muertos en batalla acompañaban al Sol, no venían al Mictlán. ¡Solo estamos de visita!'] },
+  { who: 'Calaca sacerdote', t: [-72, 5, 35], c: [-63, 14, 20], h: 'Tzompantli', k: 'Los dioses se sacrificaron para crear el mundo; los humanos les devolvían energía.',
+    d: g => { g.sun(14, 6); g.temple(2, 56); g.rack(48, 56, 42); },
+    pages: [
+    'Para los mexicas, los dioses se sacrificaron para crear el Sol y el mundo. A cambio, los humanos debían devolverles energía: la sangre era el alimento de los dioses y mantenía al Sol en movimiento.',
+    'Los sacrificios se hacían sobre una piedra llamada téchcatl, en lo alto de los templos, y casi siempre eran prisioneros de guerra. También existía el autosacrificio: los sacerdotes se pinchaban orejas y piernas con espinas de maguey.',
+    'Esto es un tzompantli, un muro de cráneos. En 2015, arqueólogos del INAH encontraron el Huei Tzompantli de Tenochtitlan junto al Templo Mayor, con cientos de cráneos.'] },
+  { who: 'Calaca sacerdote del fuego', t: [-76, 5, -25], c: [-90, 14, -38], h: 'Fuego Nuevo', k: 'Cada 52 años se apagaban todos los fuegos y se encendía uno nuevo.',
+    d: g => { g.bundle(36, 60); g.fire(38, 54); g.fire(45, 52); g.fig(14, 54, { c: 'k', hair: true }); g.censer(24, 52); g.fig(70, 54, { flip: true, c: 'r', band: 'b' }); g.shell(62, 47); },
+    pages: [
+    'Cada 52 años se completaba un ciclo del calendario: el xiuhmolpilli, la "atadura de años". Esa noche se apagaban todos los fuegos y se temía que el Sol no volviera a salir.',
+    'En el cerro Huixachtépetl, hoy Cerro de la Estrella en Iztapalapa, los sacerdotes encendían el Fuego Nuevo. Desde ahí, corredores lo llevaban a todos los templos y hogares. ¡Ma tlaneci: que amanezca!',
+    'En los rituales se quemaba copal, una resina aromática, en sahumadores, y se tocaba el atecocolli, la trompeta de caracol. El humo y el sonido comunicaban con los dioses.'] },
+  { who: XOLO, t: [0, 8, 0], c: [0, 75, 125], h: 'Descanso', k: 'Recordar a nuestros muertos es mantenerlos vivos.',
+    d: g => { g.temple(30, 56); for (const x of [10, 17, 74, 81]) g.flower(x, 56); g.steps(2, 58, 28, 58, 8); },
+    pages: [
+    'Al final de los nueve niveles, el alma llegaba ante Mictlantecuhtli y Mictecacíhuatl, entregaba sus ofrendas y por fin descansaba.',
+    'Recordar a nuestros muertos es mantenerlos vivos. Gracias por recorrer el Mictlán conmigo. Puedes volver a empezar o explorar libremente en la vista POV.'] },
+];
+const G = { i: 0, p: 0, chars: 0, cam: new THREE.Vector3(), look: new THREE.Vector3() };
+const dlg = document.getElementById('dlg'), who = document.getElementById('who'), say = document.getElementById('say'), cnt = document.getElementById('cnt');
+const page = () => STOPS[G.i].pages[G.p];
+// ---------- 2D pixel-art portraits (48×48, drawn with rects) ----------
+const faceCtx = document.getElementById('face').getContext('2d');
+let faceKey = '';
+function portrait(name, talk) {
+  const k = name + talk; if (k == faceKey) return; faceKey = k;
+  const c = faceCtx, r = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+  r(0, 0, 48, 48, '#1c1b26'); r(0, 30, 48, 18, '#24222f');
+  for (let i = 0; i < 9; i++) r((i * 17) % 46, (i * 11) % 26, 1, 1, '#a9c8e6');
+  const BN = '#d6cfbd', SH = '#b3ab98', DK = '#0a090c';
+  const skull = (eye, open) => {
+    r(14, 8, 20, 18, BN); r(12, 12, 24, 12, BN); r(16, 26, 16, 6, BN); r(14, 8, 20, 2, '#e8e2d2'); r(32, 12, 2, 12, SH);
+    r(16, 16, 6, 6, DK); r(26, 16, 6, 6, DK); r(18, 18, 2, 2, eye); r(28, 18, 2, 2, eye); r(23, 23, 2, 3, DK);
+    for (let i = 0; i < 6; i++) r(18 + i * 2, 29, 1, 2, DK);
+    if (open) r(18, 31, 12, open, DK);
+    r(18, 31 + open, 12, 4, BN); for (let i = 0; i < 6; i++) r(18 + i * 2, 31 + open, 1, 1, DK);
+    r(21, 35 + open, 6, 4, SH);
+  };
+  const body = cloth => { r(8, 40, 32, 8, cloth); r(22, 38, 4, 3, BN); r(12, 42, 24, 1, '#00000055'); };
+  const m = talk ? 2 : 0;
+  if (name == XOLO) {
+    const SK = '#4a4542', HI = '#5a514b';
+    for (let i = 0; i < 12; i++) { const w = 1 + (i >> 1); r(11, 2 + i, w, 1, SK); r(37 - w, 2 + i, w, 1, SK); if (i > 4) { r(12, 2 + i, w - 2, 1, '#6b4a44'); r(38 - w, 2 + i, w - 2, 1, '#6b4a44'); } }
+    r(14, 12, 20, 14, SK); r(15, 12, 18, 2, HI); r(14, 16, 20, 1, '#3d3836');
+    r(22, 13, 4, 1, '#8a3324'); r(23, 15, 2, 1, '#a8742e');
+    r(17, 18, 4, 2, '#ffb347'); r(27, 18, 4, 2, '#ffb347'); r(19, 18, 1, 2, '#3a1d08'); r(29, 18, 1, 2, '#3a1d08');
+    r(19, 24, 10, 10, SK); r(20, 34, 8, 4, SK); r(21, 36, 6, 3, '#111014'); r(22, 36, 2, 1, '#3a3533');
+    if (talk) r(21, 39, 6, 2, '#5a1f1a');
+    r(16, 39 + m, 16, 9 - m, SK); r(13, 42, 22, 6, SK);
+    r(15, 43, 3, 1, '#8a3324'); r(30, 43, 3, 1, '#8a3324'); r(16, 45, 2, 1, '#a8742e'); r(30, 45, 2, 1, '#a8742e');
+  } else if (name == 'Mictlantecuhtli') {
+    for (let i = -5; i <= 5; i++) { const x = 23 + i * 3; r(x, 2 + Math.abs(i), 3, 12, i % 2 ? '#6d6258' : '#8a7f72'); r(x, 2 + Math.abs(i), 3, 2, BN); }
+    body('#5a1f1a'); skull('#9fe3ff', m);
+    for (const x of [7, 36]) { r(x, 16, 5, 5, '#c9b48a'); r(x + 2, 18, 1, 1, '#6e2a1f'); r(x + 1, 22, 3, 3, SH); }
+    r(14, 7, 20, 2, '#c9b48a');
+  } else if (name == 'Mictecacíhuatl') {
+    r(9, 7, 30, 36, '#141216');
+    for (let y = 40; y < 48; y++) { const w = 32 - (y - 40) * 2; r(24 - w / 2, y, w, 1, y == 40 ? '#6e2a1f' : '#b8a274'); }
+    skull('#ffb347', 2 + m); r(14, 10, 20, 2, '#c9b48a'); for (const x of [17, 23, 29]) r(x, 10, 2, 2, '#6e2a1f');
+    r(10, 14, 3, 26, '#141216'); r(35, 14, 3, 26, '#141216');
+  } else { // calacas: accessory by trade
+    body(name.includes('pelota') ? '#a8742e' : name.includes('músico') ? '#2b2628' : '#5a1f1a');
+    if (name.includes('músico')) { r(22, 0, 3, 10, '#3d6b5a'); r(18, 3, 2, 7, '#a8742e'); r(28, 3, 2, 7, '#a8742e'); }
+    skull('#ffb347', m);
+    r(13, 11, 22, 3, name.includes('pelota') ? '#a8742e' : name.includes('músico') ? '#c9b48a' : '#6e2a1f');
+  }
+}
+function showPage() { SFX.page(); who.textContent = STOPS[G.i].who; G.chars = 0; cnt.textContent = (G.i + 1) + ' / ' + STOPS.length; say.setAttribute('aria-label', page()); }
+function gNext() {
+  if (G.chars < page().length) { G.chars = page().length; return; }
+  if (++G.p >= STOPS[G.i].pages.length) { G.p = 0; G.i = (G.i + 1) % STOPS.length; }
+  showPage();
+}
+function gPrev() {
+  if (--G.p < 0) { G.i = (G.i - 1 + STOPS.length) % STOPS.length; G.p = STOPS[G.i].pages.length - 1; }
+  showPage();
+}
+document.getElementById('next').onclick = gNext;
+document.getElementById('prev').onclick = gPrev;
+// ---------- códice mode: one amate leaf per stop ----------
+const C = { i: 0 }, codex = document.getElementById('codex'), cart = document.getElementById('cart'), cc = cart.getContext('2d'), CW = 96, CH = 64;
+const PAL = { bg: '#d9c79a', k: '#1a1210', r: '#a8321f', o: '#c98a2a', y: '#e8c04a', t: '#3d8f87', b: '#efe6cf', w: '#7a4f33', g: '#5f7f3a', a: '#4a4542', u: '#3b6f9a', p: '#e8891e' };
+const pr = (x, y, w, h, c) => { cc.fillStyle = PAL[c] || c; cc.fillRect(x, y, w, h); };
+// glyphs stand on baseline y and face right, like figures in the codices
+const glyph = {
+  fig(x, y, o = {}) {
+    if (o.flip) { cc.save(); cc.translate(2 * x + 9, 0); cc.scale(-1, 1); }
+    const top = y - (o.sit ? 14 : 18);
+    if (o.sit) pr(x, y - 8, 8, 8, o.c || 'r'); // seated figures wrapped in a cloak
+    else { pr(x + 2, y - 4, 1, 4, 'b'); pr(x + 5, y - 4, 1, 4, 'b'); pr(x + 2, y - 1, 2, 1, 'b'); pr(x + 5, y - 1, 2, 1, 'b'); pr(x + 1, y - 10, 6, 6, o.c || 'r'); }
+    pr(x + 1, top, 7, 6, 'b'); pr(x + 3, top + 6, 5, 2, 'b'); pr(x + 5, top + 2, 2, 2, 'k'); pr(x + 7, top + 4, 1, 1, 'k');
+    pr(x + 4, top + 7, 1, 1, 'k'); pr(x + 6, top + 7, 1, 1, 'k');
+    if (o.hair) { pr(x, top - 1, 4, 10, 'k'); pr(x, top - 1, 7, 2, 'k'); }
+    if (o.crest) { pr(x - 1, top - 5, 2, 6, 'a'); pr(x + 1, top - 6, 2, 6, '#8a7f72'); pr(x + 3, top - 5, 2, 5, 'a'); pr(x + 1, top - 1, 6, 1, 'o'); }
+    if (o.f) { pr(x + 1, top - 4, 1, 4, 't'); pr(x + 3, top - 5, 1, 5, 'g'); pr(x + 5, top - 4, 1, 4, 't'); }
+    if (o.band) pr(x + 1, top, 7, 1, o.band);
+    if (o.helm == 'eagle') { pr(x, top - 2, 8, 3, 'w'); pr(x + 7, top + 1, 3, 2, 'y'); pr(x, top - 4, 3, 2, 'b'); }
+    if (o.helm == 'jaguar') { pr(x, top - 2, 8, 3, 'y'); pr(x + 1, top - 2, 1, 1, 'k'); pr(x + 4, top - 1, 1, 1, 'k'); pr(x + 1, top - 3, 2, 1, 'y'); pr(x + 5, top - 3, 2, 1, 'y'); }
+    const ay = o.sit ? y - 5 : y - 9;
+    if (o.up) { pr(x + 6, ay, 3, 1, 'b'); pr(x + 8, ay - 7, 1, 7, 'b'); } else pr(x + 6, ay, o.reach ?? 4, 1, 'b');
+    if (o.talk) glyph.scroll(x + 10, top + 6, o.talk);
+    if (o.flip) cc.restore();
+  },
+  scroll: (x, y, c = 'k') => { pr(x, y, 3, 1, c); pr(x + 3, y - 3, 1, 4, c); pr(x + 1, y - 3, 2, 1, c); pr(x + 1, y - 2, 1, 1, c); }, // speech/song scroll
+  steps: (x0, y0, x1, y1, n) => { for (let i = 0; i <= n; i++) pr(Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n) - (i % 2), 2, 1, 'k'); }, // footprints mark a journey
+  dog: (x, y) => { pr(x, y - 6, 10, 4, 'a'); pr(x + 1, y - 2, 1, 2, 'a'); pr(x + 8, y - 2, 1, 2, 'a'); pr(x + 9, y - 9, 4, 4, 'a'); pr(x + 10, y - 11, 1, 2, 'a'); pr(x + 12, y - 11, 1, 2, 'a'); pr(x + 13, y - 7, 2, 2, 'a'); pr(x + 11, y - 8, 1, 1, 'o'); pr(x - 2, y - 7, 2, 1, 'a'); pr(x + 3, y - 6, 4, 1, 'r'); },
+  temple: (x, y) => { for (let i = 0; i < 5; i++) pr(x + i * 3, y - (i + 1) * 5, 34 - i * 6, 5, i % 2 ? 'o' : 'r'); pr(x + 14, y - 25, 6, 25, 'b'); pr(x + 12, y - 31, 10, 6, 'o'); pr(x + 15, y - 29, 4, 4, 'k'); },
+  river: (x, y, w) => { pr(x, y, w, 4, 'u'); for (let i = x + 2; i < x + w - 3; i += 6) { pr(i, y + 1, 2, 1, 'b'); pr(i + 3, y + 2, 1, 1, 'b'); } },
+  sun: (x, y) => { pr(x, y, 10, 10, 'y'); pr(x + 3, y + 3, 4, 4, 'o'); pr(x + 4, y - 3, 2, 3, 'r'); pr(x + 4, y + 10, 2, 3, 'r'); pr(x - 3, y + 4, 3, 2, 'r'); pr(x + 10, y + 4, 3, 2, 'r'); },
+  throne: (x, y) => { pr(x - 3, y - 18, 3, 18, 'k'); pr(x - 3, y - 2, 13, 2, 'k'); },
+  owl: (x, y) => { pr(x, y - 6, 4, 6, 'a'); pr(x + 1, y - 5, 1, 1, 'o'); pr(x + 3, y - 5, 1, 1, 'o'); pr(x, y - 7, 1, 1, 'a'); pr(x + 3, y - 7, 1, 1, 'a'); },
+  shell: (x, y) => { pr(x, y - 5, 7, 5, 'b'); pr(x + 7, y - 4, 2, 3, 'b'); pr(x + 1, y - 4, 4, 1, 'o'); pr(x + 2, y - 2, 4, 1, 'o'); },
+  bones: (x, y) => { pr(x, y - 2, 7, 1, 'b'); pr(x - 1, y - 3, 1, 3, 'b'); pr(x + 7, y - 3, 1, 3, 'b'); },
+  skull: (x, y) => { pr(x, y - 5, 5, 4, 'b'); pr(x + 1, y - 1, 3, 1, 'b'); pr(x + 1, y - 4, 1, 1, 'k'); pr(x + 3, y - 4, 1, 1, 'k'); },
+  flower: (x, y) => { pr(x, y - 2, 1, 2, 'g'); pr(x - 1, y - 5, 3, 3, 'p'); pr(x, y - 4, 1, 1, 'r'); },
+  pot: (x, y, c = 'w') => { pr(x, y - 5, 6, 5, c); pr(x + 1, y - 6, 4, 1, c); pr(x, y - 3, 6, 1, 'r'); },
+  flag: (x, y) => { pr(x, y - 16, 1, 16, 'w'); pr(x + 1, y - 16, 6, 8, 'b'); pr(x + 3, y - 14, 2, 4, 'r'); },
+  mat: (x, y, w) => { for (let i = 0; i < w; i++) pr(x + i, y - 2, 1, 2, i % 2 ? 'o' : 'w'); },
+  jade: (x, y) => { pr(x, y - 4, 4, 4, 't'); pr(x + 1, y - 3, 2, 2, 'g'); },
+  house: (x, y) => { pr(x, y - 8, 14, 8, 'b'); pr(x - 1, y - 12, 16, 4, 'o'); pr(x + 5, y - 5, 4, 5, 'k'); },
+  fire: (x, y) => { pr(x, y - 2, 7, 2, 'w'); pr(x + 1, y - 6, 5, 4, 'r'); pr(x + 2, y - 9, 3, 3, 'y'); },
+  court: (x, y, w) => { pr(x, y - 2, w, 2, 'r'); pr(x, y - 12, 5, 10, 'r'); pr(x + w - 5, y - 12, 5, 10, 'r'); pr(x + w / 2 - 3, y - 24, 6, 6, 'b'); pr(x + w / 2 - 1, y - 22, 2, 2, 'bg'); },
+  ball: (x, y) => pr(x, y, 3, 3, 'k'),
+  drum: (x, y) => { pr(x, y - 10, 6, 10, 'w'); pr(x, y - 11, 6, 1, 'b'); pr(x, y - 6, 6, 1, 'r'); },
+  pile: (x, y, c) => { pr(x, y - 2, 7, 2, c); pr(x + 1, y - 3, 5, 1, c); pr(x + 2, y - 4, 3, 1, c); },
+  maize: (x, y) => { pr(x, y - 12, 1, 12, 'g'); pr(x - 2, y - 7, 2, 1, 'g'); pr(x + 1, y - 5, 2, 1, 'g'); pr(x + 1, y - 10, 2, 3, 'y'); pr(x - 1, y - 13, 3, 1, 'o'); },
+  coa: (x, y) => { pr(x, y - 16, 1, 15, 'w'); pr(x - 1, y - 1, 2, 1, 'w'); },
+  book: (x, y) => { for (let i = 0; i < 4; i++) { const yy = y - 4 - (i % 2); pr(x + i * 5, yy, 5, 4, 'b'); pr(x + i * 5 + 1, yy + 1, 3, 2, ['r', 'k', 't', 'o'][i]); } },
+  dome: (x, y) => { for (let i = 0; i < 9; i++) { const w = 2 * Math.round(Math.sqrt(81 - i * i)); pr(x - w / 2, y - i - 1, w, 1, i % 3 ? 'a' : '#6e6a66'); } pr(x - 2, y - 5, 4, 5, 'k'); },
+  board: (x, y) => { glyph.mat(x, y, 40); for (let i = 0; i < 9; i++) pr(x + 2 + i * 4, y - 10, 3, 3, i % 2 ? 'r' : 'o'); for (let j = 0; j < 5; j++) pr(x + 18, y - 22 + j * 4, 3, 3, j % 2 ? 'o' : 'r'); for (let i = 0; i < 5; i++) pr(x + 6 + i * 6, y - 5, 2, 1, 'b'); },
+  shield: (x, y) => { pr(x, y - 7, 7, 7, 'r'); pr(x + 2, y - 5, 3, 3, 'b'); pr(x + 1, y, 1, 3, 'b'); pr(x + 5, y, 1, 3, 'b'); },
+  club: (x, y) => { pr(x, y - 14, 2, 14, 'w'); for (let i = 0; i < 4; i++) { pr(x - 1, y - 13 + i * 3, 1, 2, 'k'); pr(x + 2, y - 13 + i * 3, 1, 2, 'k'); } },
+  rack: (x, y, w) => { pr(x, y - 22, 2, 22, 'w'); pr(x + w - 2, y - 22, 2, 22, 'w'); for (const yy of [y - 21, y - 14, y - 7]) { pr(x, yy, w, 1, 'w'); for (let i = x + 4; i < x + w - 5; i += 6) glyph.skull(i, yy + 6); } },
+  censer: (x, y) => { pr(x, y - 4, 6, 4, 'o'); pr(x + 6, y - 3, 5, 1, 'w'); glyph.scroll(x + 1, y - 7, 'a'); glyph.scroll(x + 3, y - 12, 'a'); },
+  bundle: (x, y) => { pr(x, y - 4, 18, 4, 'o'); for (const i of [3, 8, 13]) pr(x + i, y - 5, 2, 6, 'r'); },
+  num: (x, y, n) => { const b = Math.floor(n / 5); for (let i = 0; i < b; i++) pr(x, y - i * 4, 10, 2, 'r'); for (let i = 0; i < n % 5; i++) pr(x + i * 3, y - b * 4, 2, 2, 'r'); }, // bars of five, dots of one
+};
+function ink() { // black contour around every painted shape, as the tlacuilo did
+  const im = cc.getImageData(0, 0, CW, CH), a = im.data, bg = [217, 199, 154], K = [26, 18, 16], out = [];
+  const is = (i, c) => a[i] == c[0] && a[i + 1] == c[1] && a[i + 2] == c[2];
+  for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) {
+    const i = (y * CW + x) * 4; if (!is(i, bg)) continue;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const X = x + dx, Y = y + dy, j = (Y * CW + X) * 4;
+      if (X >= 0 && Y >= 0 && X < CW && Y < CH && !is(j, bg) && !is(j, K)) { out.push(i); break; }
+    }
+  }
+  for (const i of out) a.set(K, i);
+  cc.putImageData(im, 0, 0);
+  for (let i = 0; i < 70; i++) pr(hash(i, 1) * CW | 0, hash(i, 2) * CH | 0, 2 + hash(i, 3) * 8 | 0, 1, '#8a6a3e14'); // amate fibres
+}
+function showCodex() {
+  const s = STOPS[C.i];
+  SFX.rustle();
+  pr(0, 0, CW, CH, 'bg'); s.d(glyph); glyph.num(CW - 13, 14, C.i + 1); ink();
+  cart.setAttribute('aria-label', s.h);
+  document.getElementById('cwho').textContent = s.h;
+  document.getElementById('ctext').textContent = s.k;
+  document.getElementById('ccnt').textContent = (C.i + 1) + ' / ' + STOPS.length;
+}
+const cNext = () => { C.i = (C.i + 1) % STOPS.length; showCodex(); };
+const cPrev = () => { C.i = (C.i - 1 + STOPS.length) % STOPS.length; showCodex(); };
+document.getElementById('cnext').onclick = cNext;
+document.getElementById('cprev').onclick = cPrev;
+const gT = new THREE.Vector3(), gC = new THREE.Vector3();
+function guide(dt, e) {
+  const s = STOPS[G.i], k = 1 - Math.exp(-dt * 1.6);
+  gT.set(s.t[0], s.t[1] + world.position.y, s.t[2]);
+  gC.set(s.c[0] + Math.sin(e * 0.2) * 1.5, s.c[1] + world.position.y, s.c[2] + Math.cos(e * 0.2) * 1.5);
+  G.cam.lerp(gC, k); G.look.lerp(gT, k);
+  camera.position.copy(G.cam); camera.position.y += G.cam.distanceTo(gC) * 0.4; // arc over geometry while travelling
+  camera.lookAt(G.look);
+  G.chars = Math.min(page().length, G.chars + dt * 45);
+  const shown = page().slice(0, Math.floor(G.chars));
+  if (say.textContent.length != shown.length) { say.textContent = shown; if (shown.length % (s.who == XOLO ? 4 : s.who.startsWith('Mict') ? 6 : 3) == 0) SFX.blip(s.who); }
+  dlg.classList.toggle('done', G.chars >= page().length);
+  portrait(s.who, G.chars < page().length && Math.floor(e * 7) % 2 == 0);
+}
+
+// ---------- controls: zoom (orbit) / first-person walk (POV) ----------
+let zoom = 1, mode = 'orbit';
+const me = { x: 0, z: 22, yaw: Math.PI, pitch: 0.15, fwd: 0 };
+const keys = {};
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.target.tagName == 'BUTTON' && (e.code == 'Space' || e.code == 'Enter')) return;
+  if (mode == 'codice') { if (e.code == 'ArrowRight') cNext(); if (e.code == 'ArrowLeft') cPrev(); return; }
+  if (mode != 'guide') return;
+  if (['Space', 'Enter', 'ArrowRight'].includes(e.code)) { e.preventDefault(); gNext(); }
+  if (e.code == 'ArrowLeft') gPrev();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+const hint = document.getElementById('hint'), modeBtns = document.querySelectorAll('[data-m]');
+function setMode(m) {
+  if (m != mode) SFX.mode();
+  mode = m;
+  modeBtns.forEach(b => b.setAttribute('aria-pressed', b.dataset.m == m));
+  hint.style.display = m == 'pov' ? 'block' : 'none';
+  dlg.hidden = m != 'guide';
+  codex.hidden = m != 'codice';
+  if (m == 'codice') showCodex();
+  if (m == 'guide') { G.cam.copy(camera.position); G.look.set(0, 4, 0); showPage(); }
+}
+modeBtns.forEach(b => b.onclick = () => setMode(b.dataset.m));
+// ---------- music: composed live (huehuetl, teponaztli, rattle, clay flute, wind) ----------
+let AC = null, master, sfx, nb, musicOn = true;
+const STEP = 60 / 66 / 2; // eighth notes at 66 bpm
+const FLUTE = [440, 523.25, 587.33, 659.25, 783.99, 880]; // A minor pentatonic
+const hit = (t, f, f2, dur, g, type = 'sine', out = master) => {
+  const o = AC.createOscillator(), a = AC.createGain(); o.type = type;
+  o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  a.gain.setValueAtTime(g, t); a.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(a); a.connect(out); o.start(t); o.stop(t + dur);
+};
+const burst = (t, f, type, dur, g, out = sfx, f2 = f) => { // filtered noise burst
+  const s = AC.createBufferSource(), h = AC.createBiquadFilter(), a = AC.createGain(); s.buffer = nb; h.type = type;
+  h.frequency.setValueAtTime(f, t); h.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  a.gain.setValueAtTime(g, t); a.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  s.connect(h); h.connect(a); a.connect(out); s.start(t, Math.random()); s.stop(t + dur + 0.01);
+};
+const rattle = (t, g) => burst(t, 5000, 'highpass', 0.09, g, master);
+const flute = (t, f, dur) => {
+  const o = AC.createOscillator(), v = AC.createOscillator(), vg = AC.createGain(), a = AC.createGain();
+  o.frequency.value = f; v.frequency.value = 4.5; vg.gain.value = f * 0.012; v.connect(vg); vg.connect(o.frequency);
+  a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(0.08, t + 0.18); a.gain.setValueAtTime(0.08, t + dur - 0.25); a.gain.linearRampToValueAtTime(0, t + dur);
+  o.connect(a); a.connect(master); o.start(t); v.start(t); o.stop(t + dur); v.stop(t + dur);
+};
+let step = 0, next = 0, note = 2, rest = 0;
+function play(t) {
+  const s = step % 16, bar = Math.floor(step / 16) % 8;
+  if (s == 0 || s == 6 || s == 10) hit(t, 95, 42, 0.9, s ? 0.45 : 0.7); // huehuetl
+  if (bar >= 1) { if (s == 3 || s == 13) hit(t, 330, 300, 0.14, 0.18, 'triangle'); if (s == 8) hit(t, 220, 205, 0.18, 0.2, 'triangle'); } // teponaztli: two tongues
+  if (bar >= 2) rattle(t, s % 2 ? 0.05 : 0.1);
+  if (bar >= 3 && --rest <= 0) { // flute wanders the scale, holding long notes, with silences
+    if (Math.random() < 0.25) rest = 4;
+    else { note = Math.max(0, Math.min(FLUTE.length - 1, note + Math.floor(Math.random() * 5) - 2)); rest = 2 + Math.floor(Math.random() * 4); flute(t, FLUTE[note], rest * STEP); }
+  }
+  step++;
+}
+const loops = [];
+function startAudio() {
+  AC = new AudioContext(); master = AC.createGain(); master.gain.value = 0.5; master.connect(AC.destination);
+  sfx = AC.createGain(); sfx.gain.value = 0.7; sfx.connect(AC.destination);
+  const len = AC.sampleRate * 3, ir = AC.createBuffer(2, len, AC.sampleRate), rev = AC.createConvolver(), wet = AC.createGain();
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+  rev.buffer = ir; wet.gain.value = 0.6; master.connect(rev); rev.connect(wet); wet.connect(AC.destination); // cavern reverb
+  nb = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate); const nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  const wind = AC.createBufferSource(), bp = AC.createBiquadFilter(), lfo = AC.createOscillator(), lg = AC.createGain(), wg = AC.createGain();
+  wind.buffer = nb; wind.loop = true; bp.type = 'bandpass'; bp.frequency.value = 450; bp.Q.value = 6; lfo.frequency.value = 0.06; lg.gain.value = 300; wg.gain.value = 0.1;
+  lfo.connect(lg); lg.connect(bp.frequency); wind.connect(bp); bp.connect(wg); wg.connect(master); wind.start(); lfo.start();
+  const drone = AC.createOscillator(), dg = AC.createGain(); drone.type = 'triangle'; drone.frequency.value = 55; dg.gain.value = 0.06; drone.connect(dg); dg.connect(master); drone.start();
+  // positional ambience: looped noise whose gain follows the camera's distance
+  for (const [x, y, z, type, f, g] of [[fallO.x, 0, fallO.z, 'lowpass', 900, 0.7], [ISL.temazcal[0], 6, ISL.temazcal[1], 'highpass', 4000, 0.2], [ISL.milpa[0], 5, ISL.milpa[1], 'bandpass', 2500, 0.12]]) {
+    const src = AC.createBufferSource(), fl = AC.createBiquadFilter(), gn = AC.createGain();
+    src.buffer = nb; src.loop = true; fl.type = type; fl.frequency.value = f; gn.gain.value = 0;
+    src.connect(fl); fl.connect(gn); gn.connect(sfx); src.start(0, Math.random());
+    loops.push({ p: new THREE.Vector3(x, y, z), gn, g });
+  }
+  next = AC.currentTime + 0.1;
+  setInterval(() => {
+    if (next < AC.currentTime) next = AC.currentTime + 0.05; // background tabs throttle timers; don't burst-catch-up
+    while (next < AC.currentTime + 0.25) { if (musicOn) play(next); next += STEP; }
+  }, 60);
+}
+startAudio();
+// browsers keep audio suspended until the first gesture; music is on by default from then
+const unlock = () => { if (AC.state == 'suspended') AC.resume(); };
+addEventListener('pointerdown', unlock); addEventListener('keydown', unlock);
+const musicBtn = document.getElementById('music');
+musicBtn.onclick = () => {
+  musicOn = !musicOn;
+  master.gain.setTargetAtTime(musicOn ? 0.5 : 0, AC.currentTime, 0.2);
+  musicBtn.setAttribute('aria-pressed', musicOn);
+};
+// ---------- sound effects ----------
+const live = () => AC && AC.state == 'running';
+const near = (p, r = 35) => Math.max(0, 1 - camera.position.distanceTo(p) / r); // linear distance falloff
+const SFX = {
+  blip(who) { // guide voices: yips for the xolo, ghostly moans for the lords, bone clacks for the calacas
+    if (!live()) return;
+    const t = AC.currentTime;
+    if (who == XOLO) { const f = 500 + Math.random() * 250; hit(t, f, f * 0.55, 0.07, 0.1, 'sawtooth', sfx); burst(t, 1200, 'bandpass', 0.06, 0.12); }
+    else if (who.startsWith('Mict')) { const f = 90 + Math.random() * 40; hit(t, f, f * 0.8, 0.35, 0.12, 'sine', sfx); hit(t, f * 1.51, f * 1.2, 0.35, 0.05, 'triangle', sfx); burst(t, 600, 'bandpass', 0.3, 0.05, sfx, 300); }
+    else for (const d of [0, 0.03]) hit(t + d, 1400 + Math.random() * 900, 1100, 0.025, 0.09, 'triangle', sfx);
+  },
+  page: () => live() && hit(AC.currentTime, 520, 515, 0.6, 0.1, 'triangle', sfx),
+  rustle: () => live() && burst(AC.currentTime, 3500, 'bandpass', 0.35, 0.35, sfx, 700), // amate leaf turning
+  mode: () => live() && (hit(AC.currentTime, 330, 300, 0.12, 0.2, 'triangle', sfx), hit(AC.currentTime + 0.1, 220, 205, 0.2, 0.2, 'triangle', sfx)),
+  step: water => live() && (water ? burst(AC.currentTime, 1800, 'bandpass', 0.18, 0.25, sfx, 600) : burst(AC.currentTime, 260 + Math.random() * 80, 'lowpass', 0.09, 0.5)),
+  at(p, fn, r) { const g = live() && near(p, r); if (g > 0) fn(AC.currentTime, g); },
+  crackle: (t, g) => burst(t, 2500 + Math.random() * 3000, 'highpass', 0.02 + Math.random() * 0.03, 0.25 * g),
+  ball: (t, g) => hit(t, 170, 70, 0.16, 0.5 * g, 'sine', sfx),
+  clack: (t, g) => { for (let i = 0; i < 5; i++) hit(t + i * 0.035 + Math.random() * 0.02, 1500 + Math.random() * 500, 1200, 0.03, 0.12 * g, 'triangle', sfx); },
+  woof: (t, g) => { for (const d of [0, 0.28]) { hit(t + d, 320, 140, 0.16, 0.25 * g, 'sawtooth', sfx); burst(t + d, 700, 'bandpass', 0.12, 0.3 * g); } },
+  strike: (t, g) => { hit(t, 900, 500, 0.06, 0.3 * g, 'triangle', sfx); burst(t, 3000, 'bandpass', 0.05, 0.25 * g); },
+  babble: (t, g) => burst(t, 350 + Math.random() * 900, 'bandpass', 0.06 + Math.random() * 0.18, 0.2 * g), // crowd murmur: random vowel-band bursts
+  drum: (t, g) => hit(t, 95, 42, 0.7, 0.5 * g, 'sine', sfx),
+  conch(t, g) { // atecocolli: a swelling brassy tone
+    const o = AC.createOscillator(), f = AC.createBiquadFilter(), a = AC.createGain(); o.type = 'sawtooth'; f.type = 'lowpass'; f.frequency.value = 900;
+    o.frequency.setValueAtTime(220, t); o.frequency.linearRampToValueAtTime(233, t + 0.4); o.frequency.linearRampToValueAtTime(207, t + 2);
+    a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(0.15 * g, t + 0.4); a.gain.linearRampToValueAtTime(0, t + 2.2);
+    o.connect(f); f.connect(a); a.connect(sfx); o.start(t); o.stop(t + 2.3);
+  },
+  hoot: (t, g) => { hit(t, 390, 360, 0.35, 0.15 * g, 'sine', sfx); hit(t + 0.5, 380, 340, 0.6, 0.15 * g, 'sine', sfx); },
+};
+let lastLoopT = 0, drumN = 0, talkAt = 0;
+const islV = new THREE.Vector3(), islAt = n => islV.set(ISL[n][0], 5, ISL[n][1]);
+const CROWDS = [['mercado', 0.6], ['pelota', 0.15], ['guerreros', 0.2], ['rituales', 0.15], ['musica', 0.1], ['patolli', 0.1]];
+// [Nahuatl, Spanish] lines the calacas say when the camera is near; spoken with the browser's free built-in voice
+const TALK = {
+  taller: [['Niltze!', '¡Hola!'], ['Cualli tonalli', 'Buen día'], ['Ximopanolti', 'Bienvenido, pasa']],
+  pelota: [['¡Olli!', '¡Hule! (la pelota)'], ['¡Ximoyolchicahua!', '¡Esfuérzate!'], ['¡Ce, ome, eyi!', '¡Uno, dos, tres!']],
+  musica: [['¡Ma ticuicacan!', '¡Cantemos!'], ['In xochitl in cuicatl', 'La flor y el canto: la poesía']],
+  flor: [['Cempohualxochitl', 'Flor de veinte pétalos'], ['Xochitl', 'Flor']],
+  mercado: [['¡Cacahuatl! ¡Chilli!', '¡Cacao! ¡Chile!'], ['¿Quezqui?', '¿Cuánto?'], ['Nicnequi tlaxcalli', 'Quiero tortillas'], ['Tlazohcamati', 'Gracias'], ['¡Cualli tlaxcalli!', '¡Buenas tortillas!']],
+  milpa: [['Centli, etl, ayohtli', 'Maíz, frijol, calabaza'], ['Quiyahuiz', 'Va a llover']],
+  tlacuilo: [['In tlilli in tlapalli', 'La tinta negra, la tinta roja']],
+  temazcal: [['Atl, tletl', 'Agua, fuego']],
+  patolli: [['¡Macuilli!', '¡Cinco!'], ['¡Ome!', '¡Dos!'], ['¡Nahui!', '¡Cuatro!']],
+  guerreros: [['¡Cuauhtli!', '¡Águila!'], ['¡Ocelotl!', '¡Jaguar!'], ['¡Ximoyolchicahua!', '¡Esfuérzate!']],
+  sacrificio: [['Tonatiuh', 'El Sol'], ['Tlazohcamati, teteo', 'Gracias, dioses']],
+  rituales: [['¡Ma tlaneci!', '¡Que amanezca!'], ['Yancuic tletl', 'Fuego nuevo'], ['Tonatiuh', 'El Sol']],
+};
+const sub = document.getElementById('sub');
+function talk() {
+  if (AC.currentTime < talkAt) return;
+  talkAt = AC.currentTime + 3 + Math.random() * 4;
+  let best = null, g = 0;
+  for (const n in TALK) { const v = near(islAt(n), 30); if (v > g) { g = v; best = n; } }
+  if (!best) return;
+  const [nah, es] = TALK[best][Math.floor(Math.random() * TALK[best].length)];
+  sub.textContent = '«' + nah + '» · ' + es; sub.hidden = false;
+  clearTimeout(sub.t); sub.t = setTimeout(() => sub.hidden = true, 3500);
+  if (window.speechSynthesis) { // no Nahuatl voice exists; Spanish reads its Latin spelling closely
+    const u = new SpeechSynthesisUtterance(nah);
+    u.voice = speechSynthesis.getVoices().find(v => /^es/.test(v.lang)) || null; u.lang = 'es-MX';
+    u.pitch = 0.5 + Math.random() * 0.6; u.rate = 0.85; u.volume = Math.min(1, g * 1.5);
+    speechSynthesis.speak(u);
+  }
+}
+function ambience(t) { // per-frame positional sounds; t is the 20s loop time
+  for (const l of loops) l.gn.gain.setTargetAtTime(near(l.p, 40) * l.g, AC.currentTime, 0.3);
+  if (Math.random() < 0.15) { const f = fires[Math.floor(Math.random() * fires.length)]; SFX.at(f.position, SFX.crackle, 18); }
+  const crossed = x => lastLoopT < x && t >= x;
+  if (crossed(7)) SFX.at(dogRoot.position, SFX.woof, 45); // guardian rises and barks
+  if (crossed(12)) SFX.at(lords[0].root.position, SFX.hoot, 45); // Mictlantecuhtli's owl
+  for (const [n, rate] of CROWDS) if (Math.random() < rate) SFX.at(islAt(n), SFX.babble, 30);
+  const dn = Math.floor(t / 0.75); if (dn != drumN) { drumN = dn; SFX.at(islAt('rituales'), SFX.drum, 40); }
+  if (crossed(3) || crossed(13)) SFX.at(islAt('rituales'), SFX.conch, 55);
+  talk();
+  lastLoopT = t;
+}
+// #guia=N opens the guide at stop N (handy for sharing a stop)
+const hm = location.hash.match(/^#guia=(\d+)/);
+if (hm) { G.i = Math.min(STOPS.length - 1, +hm[1]); setMode('guide'); G.cam.set(...STOPS[G.i].c); G.look.set(...STOPS[G.i].t); } else setMode('orbit');
+// wheel/pinch: zoom in orbit, walk forward/back in POV
+const push = d => { if (mode == "pov") me.fwd += d * 0.03; else zoom = Math.min(1.6, Math.max(0.3, zoom * Math.exp(d * 0.001))); };
+renderer.domElement.addEventListener('wheel', e => { e.preventDefault(); push(mode == "pov" ? -e.deltaY : e.deltaY); }, { passive: false });
+const ptrs = new Map(); let pinch = 0;
+renderer.domElement.addEventListener('pointerdown', e => { if (mode == 'guide') return gNext(); renderer.domElement.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); });
+renderer.domElement.addEventListener('pointerup', e => { ptrs.delete(e.pointerId); pinch = 0; });
+renderer.domElement.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); pinch = 0; });
+renderer.domElement.addEventListener('pointermove', e => {
+  const prev = ptrs.get(e.pointerId); if (!prev) return;
+  if (ptrs.size == 1 && mode == "pov") { me.yaw -= (e.clientX - prev[0]) * 0.004; me.pitch = Math.max(-1.2, Math.min(1.2, me.pitch - (e.clientY - prev[1]) * 0.004)); }
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size == 2) {
+    const [p, q] = [...ptrs.values()], d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+    if (pinch) push(mode == "pov" ? (d - pinch) * 4 : (pinch - d) * 4);
+    pinch = d;
+  }
+});
+// walkable height: island ground, plus the temple's tiers and stairway so it can be climbed
+function heightAt(x, z) {
+  const lx = Math.abs(x) / 0.5, lz = (z + 11) / 0.5, edge = Math.max(lx, Math.abs(lz));
+  let h = top[Math.round(x) + ',' + Math.round(z)];
+  if (h === undefined) return undefined;
+  h += 0.5;
+  if (lx <= 4 && lz > 0 && lz <= 39) h = Math.max(h, 3.5 + Math.min(30, 39 - lz + 1) * 0.5);
+  for (let i = ws.length - 1; i >= 0; i--) if (edge <= ws[i]) { h = Math.max(h, 3.5 + (i + 1) * TH * 0.5); break; }
+  return h;
+}
+function walk(dt) {
+  if (keys.ArrowLeft) me.yaw += dt * 1.8;
+  if (keys.ArrowRight) me.yaw -= dt * 1.8;
+  const f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + me.fwd, sd = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0);
+  me.fwd *= Math.pow(0.02, dt); // wheel/pinch steps glide to a stop
+  const sp = (keys.ShiftLeft || keys.ShiftRight ? 16 : 7) * dt;
+  const nx = me.x + (Math.sin(me.yaw) * f + Math.cos(me.yaw) * sd) * sp, nz = me.z + (Math.cos(me.yaw) * f - Math.sin(me.yaw) * sd) * sp;
+  if (heightAt(nx, nz) !== undefined) { me.dist = (me.dist || 0) + Math.hypot(nx - me.x, nz - me.z); me.x = nx; me.z = nz; } // stay on the island
+  if (me.dist > 1.7) { me.dist = 0; SFX.step(top[Math.round(me.x) + ',' + Math.round(me.z)] == 2); } // footsteps; river cells splash
+  const eye = heightAt(me.x, me.z) + 2.2 + world.position.y;
+  camera.position.set(me.x, eye, me.z);
+  camera.lookAt(me.x + Math.sin(me.yaw) * Math.cos(me.pitch), eye + Math.sin(me.pitch), me.z + Math.cos(me.yaw) * Math.cos(me.pitch));
+}
+
+const bannerTmp = new THREE.Vector3();
+const clock = new THREE.Clock();
+let lastE = 0;
+function frame() {
+  const e = clock.getElapsedTime(), t = e % LOOP, ph = t / LOOP * Math.PI * 2;
+
+  world.position.y = Math.sin(ph * 2) * 0.6;
+
+  const dt = Math.min(e - lastE, 0.1);
+  lastE = e;
+  if (mode == 'pov') walk(dt);
+  else if (mode == 'guide') guide(dt, e);
+  else { // slow orbital camera, elevated three-quarter view
+    const a = 0.55 + Math.sin(ph) * 0.85;
+    camera.position.set(Math.sin(a) * 135 * zoom, 1 + (43 + Math.sin(ph * 2) * 3) * zoom, Math.cos(a) * 135 * zoom);
+    camera.lookAt(0, 1, 0);
+  }
+
+  // guardian: sit -> rise -> look at viewer -> settle
+  const p = ss(2, 7, t) - ss(15, 19.5, t), q = ss(6, 9, t) - ss(13.5, 17, t);
+  hip.position.set(0, lerp(1.7, 4.9, p), lerp(0.6, 0, p));
+  body.rotation.x = lerp(-0.62, 0, p);
+  body.rotation.z = Math.sin(e * 0.8) * 0.03 * p;
+  body.scale.y = 1 + Math.sin(e * 2) * 0.012;
+  for (const l of legs) l.piv.rotation.x = l.hind ? lerp(-0.75, 0, p) : lerp(0.62, 0, p);
+  const yaw = Math.atan2(camera.position.x - dogRoot.position.x, camera.position.z - dogRoot.position.z);
+  head.rotation.set(-body.rotation.x * 0.9, Math.max(-1.1, Math.min(1.1, yaw)) * q + Math.sin(e * 0.5) * 0.05, 0);
+  tail.rotation.y = Math.sin(e * 1.3) * 0.25;
+
+  for (const s of skels) s.act(e);
+  { // ball game: the rubber ball flies between the two players, who hip-strike it
+    const u = (e / 1.6) % 2, f = u < 1 ? u : 2 - u, bx = lerp(ballGame.a.x, ballGame.b.x, f), n = Math.floor(e / 1.6);
+    if (n != ballGame.n) { ballGame.n = n; SFX.at(ballGame.ball.position, SFX.ball, 40); } // hip strike
+    ballGame.ball.position.set(bx, ground(bx, ballGame.a.z) + 0.9 + Math.sin(f * Math.PI) * 2.6, ballGame.a.z);
+    for (const { side, k } of ballGame.players) {
+      const hit = Math.max(0, 1 - (side ? 1 - f : f) * 4);
+      k.pel.position.y = 6 * S2 - hit * 0.35; k.torso.rotation.z = (side ? -1 : 1) * hit * 0.5;
+      k.la.rotation.z = 0.5 + hit * 0.4; k.ra.rotation.z = -0.5 - hit * 0.4;
+    }
+  }
+  for (const l of fires) l.intensity = 25 + Math.sin(e * 13 + l.position.x) * 5 + Math.sin(e * 7.3) * 4;
+
+  for (const L of lords) {
+    const ly = Math.atan2(camera.position.x - L.root.position.x, camera.position.z - L.root.position.z) - L.root.rotation.y;
+    L.head.rotation.y = Math.max(-0.7, Math.min(0.7, ly)) * q * 0.8 + Math.sin(e * 0.4 + L.root.position.x) * 0.06;
+    L.root.scale.y = 1 + Math.sin(e * 1.1 + L.root.position.x) * 0.006;
+    if (L.isHim) {
+      L.arms[1].rotation.x = -ss(4, 9, t) * 0.9 + ss(14, 18, t) * 0.9; // slow welcoming gesture
+      L.owl.rotation.y = Math.sin(e * 0.6) * 1.2;
+      L.jaw.rotation.x = 0.1;
+    } else {
+      L.jaw.rotation.x = 0.25 + (0.5 + 0.5 * Math.sin(e * 0.5)) * 0.45;
+    }
+  }
+
+  // wind
+  for (const s of sway) { s.rotation.z = Math.sin(e * 0.7 + s.position.x) * 0.025; s.rotation.x = Math.sin(e * 0.5 + s.position.z) * 0.02; }
+  for (const b of banners) {
+    const pos = b.m.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      bannerTmp.fromArray(b.base, i * 3);
+      pos.setZ(i, Math.sin(e * 2.2 + bannerTmp.x * 2.5 + bannerTmp.y * 0.8 + b.ph) * 0.35 * (bannerTmp.x / 1.6));
+    }
+    pos.needsUpdate = true; b.m.geometry.computeVertexNormals();
+  }
+
+  // dark water over the edge
+  for (let i = 0; i < NF; i++) {
+    const [jx, jz, off] = fj[i], f = (off + e * 0.35) % 1;
+    o3.position.set(fallO.x + fallDir.x * f * 4 + jx * 1.4, fallO.y - f * f * 60, fallO.z + fallDir.z * f * 4 + jz * 1.4);
+    o3.scale.setScalar(0.6 * (1 - f * 0.5)); o3.rotation.set(0, 0, 0); o3.updateMatrix();
+    fallMesh.setMatrixAt(i, o3.matrix);
+  }
+  fallMesh.instanceMatrix.needsUpdate = true;
+  for (let i = 0; i < NS; i++) {
+    const z = -20 + ((i * 7.3 + e * 2.5) % (ez + 21));
+    o3.position.set(rx(z) + ((i * 0.37) % 1 - 0.5) * 2, 2.52, z); o3.scale.set(0.12, 0.02, 1.2); o3.updateMatrix();
+    streaks.setMatrixAt(i, o3.matrix);
+  }
+  streaks.instanceMatrix.needsUpdate = true;
+
+  // pale motes drifting around the temple and below the island
+  const mp = motes.geometry.attributes.position;
+  moteSeed.forEach(([r, a0, y0, sp], i) => {
+    const y = ((y0 + e * sp * 1.5) % 90) - 50, ang = a0 + e * 0.04 * sp;
+    mp.setXYZ(i, Math.cos(ang) * r, y, Math.sin(ang) * r - (y > 0 ? 8 : 0));
+  });
+  mp.needsUpdate = true;
+  const dp = dust.geometry.attributes.position;
+  dustSeed.forEach(([x0, z0, y0, o], i) => { const x = ((x0 + e * 7) % 80) - 40; dp.setXYZ(i, x, 3.8 + y0 * 0.3 + Math.sin(e * 3 + o) * 0.4, z0 + Math.sin(x * 0.2 + o) * 2); });
+  dp.needsUpdate = true;
+  dust.material.opacity = 0.15 + 0.45 * Math.max(0, Math.sin(e * 0.45));
+
+  for (const s of stones) { s.g.position.y = s.y + Math.sin(e * 0.6 + s.ph) * 0.8; s.g.rotation.y = e * 0.05 + s.ph; }
+  for (const c of clouds) { c.a += c.s * 0.016; c.m.position.x = Math.cos(c.a) * c.r; c.m.position.z = Math.sin(c.a) * c.r; }
+  for (const f of flyers) {
+    const ang = f.ph + e * f.sp;
+    f.g.position.set(Math.cos(ang) * f.r, f.y + Math.sin(e * 0.7 + f.ph) * 2, Math.sin(ang) * f.r);
+    f.g.rotation.y = -ang + (f.sp > 0 ? 0 : Math.PI);
+    const w = Math.sin(e * f.flap + f.ph) * (f.flap > 5 ? 0.8 : 0.25);
+    f.wings[0].rotation.z = w; f.wings[1].rotation.z = -w;
+  }
+
+  if (live()) ambience(t);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>
