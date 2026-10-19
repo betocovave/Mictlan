@@ -41,7 +41,7 @@
   #pad{display:none;position:fixed;left:16px;bottom:max(16px,env(safe-area-inset-bottom));grid-template:repeat(2,56px)/repeat(3,56px);gap:6px;z-index:1;user-select:none;-webkit-user-select:none;touch-action:none}
   #pad button{font:20px system-ui,sans-serif;color:#e8e0cc;background:#1c1b26cc;border:1px solid #4a4558;border-radius:8px;touch-action:none;-webkit-tap-highlight-color:transparent}
   #pad button:active{background:#6e2a1f;border-color:#c9b48a}
-  #pad [data-k=ArrowUp]{grid-area:1/2}
+  #pad [data-k=ArrowUp]{grid-area:1/2}#pad [data-k=ArrowLeft]{grid-area:2/1}#pad [data-k=ArrowDown]{grid-area:2/2}#pad [data-k=ArrowRight]{grid-area:2/3}
   #hint{background:#1c1b26aa;padding:6px 10px;border-radius:6px;display:none}
 </style>
 </head>
@@ -1272,8 +1272,9 @@ function startAudio() {
 }
 startAudio();
 // browsers keep audio suspended until the first gesture; music is on by default from then
-const unlock = () => { if (AC.state == 'suspended') AC.resume(); };
-addEventListener('pointerdown', unlock); addEventListener('keydown', unlock);
+// iOS only honours resume() inside touchend/click, not pointerdown, and may leave the context 'interrupted'
+const unlock = () => { if (AC.state != 'running') AC.resume(); };
+['pointerdown', 'touchend', 'click', 'keydown'].forEach(t => addEventListener(t, unlock, { passive: true }));
 const musicBtn = document.getElementById('music');
 musicBtn.onclick = () => {
   musicOn = !musicOn;
