@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 <style>
   html,body{margin:0;height:100%;background:#0b0a0f;overflow:hidden}
-  canvas{display:block;width:100vw;height:100vh;touch-action:none;cursor:grab}
+  canvas{display:block;width:100vw;height:100vh;height:100dvh;touch-action:none;cursor:grab}
   #ui button[aria-pressed=true]{background:#6e2a1f;border-color:#c9b48a}
   #dlg{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:min(720px,calc(100vw - 32px));box-sizing:border-box;background:#0f0e14ee;border:4px double #c9b48a;border-radius:4px;padding:22px 18px 10px;font:22px/1.25 'VT323',monospace;color:#e8e0cc;box-shadow:0 0 0 2px #0f0e14}
   #who{position:absolute;top:-16px;left:14px;background:#6e2a1f;border:2px solid #c9b48a;padding:0 10px;font-size:20px;color:#f2e6c8}
@@ -28,7 +28,7 @@
   #leaf{display:grid;justify-items:center;text-align:center;width:min(900px,100%);max-height:100%;box-sizing:border-box;padding:0 22px 12px;background:#d9c79a repeating-linear-gradient(0deg,#0000 0 5px,#8a6a3e18 5px 6px);border:6px solid #6e2a1f;outline:2px solid #1a1210;font:22px/1.25 'VT323',monospace;color:#2a1e18;box-shadow:0 0 40px #000}
   .greca{justify-self:stretch;height:14px;margin:0 -22px;background:repeating-linear-gradient(90deg,#1a1210 0 4px,#d9c79a 4px 8px,#6e2a1f 8px 16px,#d9c79a 16px 20px)}
   .greca:first-child{margin-bottom:14px}.greca:last-of-type{margin-top:10px}
-  #cart{width:min(100%,576px,max(240px,calc((100vh - 330px) * 1.5)));height:auto;align-self:start;image-rendering:pixelated;outline:3px solid #6e2a1f;outline-offset:3px;margin:6px 0 14px}
+  #cart{width:min(100%,576px,max(240px,calc((100vh - 330px) * 1.5)));width:min(100%,576px,max(240px,calc((100dvh - 330px) * 1.5)));height:auto;align-self:start;image-rendering:pixelated;outline:3px solid #6e2a1f;outline-offset:3px;margin:6px 0 14px}
   #cwho{margin:0 0 6px;font-size:34px;font-weight:normal;color:#6e2a1f}
   #ctext{margin:0;max-width:34em}
   #cnav{justify-self:stretch;display:flex;justify-content:flex-end;align-items:center;gap:10px;font-size:18px;color:#6e2a1f}
@@ -36,6 +36,12 @@
   #cnav button:focus-visible{outline:2px solid #1a1210}
   @media (max-width:620px){#leaf{font-size:19px;padding:0 12px 10px}.greca{margin:0 -12px}#cwho{font-size:26px}}
   #sub{position:fixed;left:16px;top:16px;max-width:min(420px,calc(100vw - 200px));background:#0f0e14dd;border:2px solid #c9b48a;padding:4px 10px;font:20px/1.2 'VT323',monospace;color:#e8e0cc}
+  @media (max-width:520px){#ui{right:8px;top:8px;font-size:12px}#ui button{padding:6px 9px}#sub{left:8px;top:8px;max-width:calc(100vw - 130px);font-size:17px}#dlg{bottom:8px;width:calc(100vw - 16px);padding:18px 12px 8px}#say{min-height:4em}}
+  @media (max-height:480px){#face{width:64px;height:64px}#dlg{font-size:17px;padding-top:16px}#say{min-height:3em}#leaf{font-size:17px}}
+  #pad{display:none;position:fixed;left:16px;bottom:max(16px,env(safe-area-inset-bottom));grid-template:repeat(2,56px)/repeat(3,56px);gap:6px;z-index:1;user-select:none;-webkit-user-select:none;touch-action:none}
+  #pad button{font:20px system-ui,sans-serif;color:#e8e0cc;background:#1c1b26cc;border:1px solid #4a4558;border-radius:8px;touch-action:none;-webkit-tap-highlight-color:transparent}
+  #pad button:active{background:#6e2a1f;border-color:#c9b48a}
+  #pad [data-k=ArrowUp]{grid-area:1/2}
   #hint{background:#1c1b26aa;padding:6px 10px;border-radius:6px;display:none}
 </style>
 </head>
@@ -53,7 +59,13 @@
 <div id="ui">
   <div role="group" aria-label="Modo de vista"><button data-m="orbit">Orbital</button> <button data-m="pov">POV</button> <button data-m="guide">Guía</button> <button data-m="codice">Códice</button></div>
   <button id="music" aria-pressed="true">♪ Música</button>
-  <div id="hint">WASD / flechas: caminar · arrastrar: mirar · rueda o pellizco: avanzar · Shift: correr</div>
+  <div id="hint">Flechas en pantalla o WASD: caminar · arrastrar: mirar · rueda o pellizco: avanzar · Shift: correr</div>
+</div>
+<div id="pad" role="group" aria-label="Controles de movimiento">
+  <button data-k="ArrowUp" aria-label="Avanzar">▲</button>
+  <button data-k="ArrowLeft" aria-label="Girar a la izquierda">◀</button>
+  <button data-k="ArrowDown" aria-label="Retroceder">▼</button>
+  <button data-k="ArrowRight" aria-label="Girar a la derecha">▶</button>
 </div>
 <div id="sub" hidden></div>
 <div id="dlg" hidden>
@@ -1177,12 +1189,21 @@ addEventListener('keydown', e => {
   if (e.code == 'ArrowLeft') gPrev();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
+// on-screen arrows (touch): hold to walk/turn, same as the arrow keys
+const pad = document.getElementById('pad');
+pad.querySelectorAll('[data-k]').forEach(b => {
+  const set = v => () => { keys[b.dataset.k] = v; };
+  b.addEventListener('pointerdown', e => { b.setPointerCapture(e.pointerId); keys[b.dataset.k] = true; });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => b.addEventListener(t, set(false)));
+});
+pad.addEventListener('contextmenu', e => e.preventDefault());
 const hint = document.getElementById('hint'), modeBtns = document.querySelectorAll('[data-m]');
 function setMode(m) {
   if (m != mode) SFX.mode();
   mode = m;
   modeBtns.forEach(b => b.setAttribute('aria-pressed', b.dataset.m == m));
   hint.style.display = m == 'pov' ? 'block' : 'none';
+  pad.style.display = m == 'pov' ? 'grid' : 'none';
   dlg.hidden = m != 'guide';
   codex.hidden = m != 'codice';
   if (m == 'codice') showCodex();
